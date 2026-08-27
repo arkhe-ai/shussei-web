@@ -29,14 +29,14 @@
   --color-amber-800: #6b3a06;
 
   /* foreground roles */
-  --color-content-primary: #ffc46b;
-  --color-content-secondary: #c98f37;
-  --color-content-muted: #8a6224;
+  --color-content-primary: #ffcf85;
+  --color-content-secondary: #e0a851;
+  --color-content-muted: #a3762f;
   --color-content-inverse: #0a0705;
 
   /* structure */
-  --color-line: #4a3311;
-  --color-line-bright: #7a5316;
+  --color-line: #7d5718;
+  --color-line-bright: #c2892a;
 
   /* brand alias so semantics stay readable in components */
   --color-brand-400: #ffab3d;
@@ -110,7 +110,7 @@
       transparent 1px,
       transparent 3px
     );
-    opacity: 0.5;
+    opacity: 0.35;
   }
 
   body::after {
@@ -121,8 +121,8 @@
     pointer-events: none;
     background: radial-gradient(
       ellipse at center,
-      transparent 55%,
-      color-mix(in srgb, var(--color-base-950) 75%, transparent) 100%
+      transparent 70%,
+      color-mix(in srgb, var(--color-base-950) 45%, transparent) 100%
     );
   }
 

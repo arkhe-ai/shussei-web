@@ -1,5 +1,5 @@
 import type { ChannelDto, EphemeralMessage, SessionUser, VoiceTokenResponse } from '../types';
-import { mockChannels, mockMessages, mockSessionUser } from './data';
+import { mockChannels, mockMessages, mockSessionUser, mockUsers } from './data';
 
 /**
  * In-memory stand-in for the REST surface of `shussei-api`, used when
@@ -34,6 +34,10 @@ export async function mockApiFetch<T>(path: string, init?: RequestInit): Promise
 
   if (pathname === '/api/v1/auth/me') {
     return delay({ user: mockSessionUser satisfies SessionUser } as T);
+  }
+
+  if (pathname === '/api/v1/users') {
+    return delay({ users: mockUsers } as T);
   }
 
   if (pathname === '/api/v1/channels') {
