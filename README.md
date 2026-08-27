@@ -45,11 +45,29 @@ Com `NEXT_PUBLIC_MOCK=1` o cliente roda inteiro sem backend:
 - sessão, canais, presença e buffer de chat falsos (`lib/mock/`);
 - transporte Socket.IO simulado, com eco das mensagens enviadas;
 - entrar/sair de canal de voz simulado (sem LiveKit);
+- **o microfone é pedido de verdade** (`getUserMedia`): o medidor de nível
+  mostra a captação real e negar a permissão exercita a mensagem de erro;
 - compartilhamento de tela usa `getDisplayMedia` de verdade e mostra o preview
-  local, o que permite testar a detecção de áudio do sistema sem servidor.
+  local, o que permite testar a detecção de áudio do sistema sem servidor;
+- o nível de áudio **dos outros participantes é simulado** (senoide por id),
+  já que não existe SFU reportando levels. Com backend real esses valores vêm
+  do LiveKit.
 
 Serve para desenvolver a UI antes da `shussei-api` existir e para o smoke test
 do Playwright.
+
+## Feedback de estado
+
+Tudo que é "está funcionando?" tem indicador visível:
+
+| Onde | O que mostra |
+| --- | --- |
+| `MicMeter` (painel de voz e dock) | Nível real do microfone em 12 segmentos, com rótulo `captando` / `mudo` / `sem microfone`. Bar parada com o mic aberto = o navegador está captando de outro dispositivo de entrada |
+| `LiveDot` | Bolinha: cheia = conectado, piscando = atividade agora (falando, transmitindo, reconectando), vazada = mudo/offline |
+| Lista de participantes | Barras de nível por pessoa, chips `mudo` / `transmitindo` e qualidade de rede do LiveKit (`rede ruim` em vermelho) |
+| `ScreenStage` | Vídeo ao vivo de cada tela compartilhada com selo `● AO VIVO` piscando |
+| Dock de voz | Miniatura ao vivo da sua transmissão + medidor, visível enquanto você navega por outros canais |
+| Status bar | Ponto fixo em `conectado`, piscando em `reconectando` |
 
 ## Atalhos de teclado
 

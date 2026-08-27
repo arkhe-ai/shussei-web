@@ -37,12 +37,20 @@ export type VoiceTokenResponse = {
   wsUrl: string;
 };
 
+export type ConnectionQuality = 'excellent' | 'good' | 'poor' | 'lost' | 'unknown';
+
 export type VoiceParticipant = {
   id: string;
   name: string;
   isSpeaking?: boolean;
   isMuted?: boolean;
   isSharingScreen?: boolean;
+  /** 0..1 loudness, used by the level bars. */
+  audioLevel?: number;
+  connectionQuality?: ConnectionQuality;
 };
+
+/** Why the microphone is or is not producing audio right now. */
+export type MicStatus = 'idle' | 'live' | 'muted' | 'unavailable';
 
 export type ScreenShareMode = 'screen+audio' | 'screen-only';

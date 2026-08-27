@@ -11,12 +11,14 @@ import { useVoiceRoom } from '../hooks/use-voice-room';
 import type { ChannelDto, VoiceParticipant } from '../lib/types';
 import { ChannelSidebar } from './channel-sidebar';
 import { ChatPanel } from './chat-panel';
+import { MicMeter } from './mic-meter';
 import { PresenceList } from './presence-list';
 import { RoomAudio } from './room-audio';
 import { ScreenShareButton } from './screen-share-button';
-import { ScreenStage } from './screen-stage';
+import { ScreenPreview, ScreenStage } from './screen-stage';
 import { CommandButton } from './ui/command-button';
 import { KeyHint } from './ui/key-hint';
+import { LiveDot } from './ui/live-dot';
 import { Panel } from './ui/panel';
 import { StatusBar } from './ui/status-bar';
 import { VoicePanel } from './voice-panel';
@@ -33,18 +35,20 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
   const voiceChannelId = activeChannel?.type === 'voice' ? activeChannel.id : null;
 
   const { messages, isLoading: isChatLoading, sendMessage } = useChat(textChannelId);
-  const voice = useVoiceRoom(voiceChannelId);
-
-  const connectedChannel =
-    channels.find((channel) => channel.id === voice.connectedChannelId) ?? null;
 
   // LiveKit is the truth for who is actually publishing media; the presence
   // snapshot covers everyone the backend says is in the room.
   const occupancyParticipants: VoiceParticipant[] = (
     channelOccupancy[voiceChannelId ?? ''] ?? []
   ).map((userId) => ({ id: userId, name: usersById[userId]?.name ?? userId }));
-  const voiceParticipants =
-    voice.participants.length > 0 ? voice.participants : occupancyParticipants;
+
+  const voice = useVoiceRoom(voiceChannelId, {
+    fallbackParticipants: occupancyParticipants,
+    selfId: user?.id,
+  });
+
+  const connectedChannel =
+    channels.find((channel) => channel.id === voice.connectedChannelId) ?? null;
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -153,8 +157,11 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
                   isConnected={voice.isConnected}
                   isConnecting={voice.isConnecting}
                   isMuted={voice.isMuted}
-                  participants={voiceParticipants}
+                  participants={voice.participants}
                   error={voice.error}
+                  micStatus={voice.micStatus}
+                  micLevel={voice.micLevel}
+                  micWarning={voice.micWarning}
                   onJoin={voice.join}
                   onLeave={voice.leave}
                   onToggleMute={voice.toggleMute}
@@ -183,12 +190,14 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
 
         {showVoiceDock ? (
           <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-line bg-base-850 px-3 py-1.5">
-            <span className="text-[11px] text-online glow">
+            {voice.screenFeeds.length > 0 ? (
+              <ScreenPreview feed={voice.screenFeeds[0]} />
+            ) : null}
+            <span className="flex items-center gap-2 text-[11px] text-online glow">
+              <LiveDot active={voice.micStatus === 'live' && voice.micLevel > 0.12} />
               {`)) ${connectedChannel.name}`}
             </span>
-            <span className="text-[11px] text-content-muted">
-              {voice.isMuted ? 'microfone mudo' : 'microfone ativo'}
-            </span>
+            <MicMeter level={voice.micLevel} status={voice.micStatus} segments={8} />
             <div className="ml-auto flex gap-2">
               <CommandButton hotkey="M" onClick={() => void voice.toggleMute()}>
                 {voice.isMuted ? 'Ativar' : 'Mutar'}

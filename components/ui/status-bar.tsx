@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import type { ReactNode } from 'react';
+import { LiveDot } from './live-dot';
 
 export function StatusBar({
   hints,
@@ -21,7 +22,12 @@ export function StatusBar({
             isConnected ? 'text-online' : 'text-danger-500',
           )}
         >
-          <span className={clsx(isConnected && 'glow')}>{isConnected ? '●' : '○'}</span>
+          {/* A steady dot means connected; the blink means it is still trying. */}
+          <LiveDot
+            active={!isConnected}
+            filled={isConnected}
+            tone={isConnected ? 'online' : 'danger'}
+          />
           {isConnected ? 'conectado' : 'reconectando'}
         </span>
       </span>

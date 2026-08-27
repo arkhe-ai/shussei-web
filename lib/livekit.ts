@@ -1,6 +1,11 @@
-import { Room, RoomEvent, Track } from 'livekit-client';
+import { ConnectionQuality, Room, RoomEvent, Track } from 'livekit-client';
 import { apiFetch } from './api';
-import type { ScreenShareMode, VoiceParticipant, VoiceTokenResponse } from './types';
+import type {
+  ConnectionQuality as AppConnectionQuality,
+  ScreenShareMode,
+  VoiceParticipant,
+  VoiceTokenResponse,
+} from './types';
 
 export const ROOM_EVENTS = [
   RoomEvent.ParticipantConnected,
@@ -51,6 +56,21 @@ export function disconnectFromVoiceRoom(room: Room): void {
   void room.disconnect();
 }
 
+function toQuality(quality: ConnectionQuality): AppConnectionQuality {
+  switch (quality) {
+    case ConnectionQuality.Excellent:
+      return 'excellent';
+    case ConnectionQuality.Good:
+      return 'good';
+    case ConnectionQuality.Poor:
+      return 'poor';
+    case ConnectionQuality.Lost:
+      return 'lost';
+    default:
+      return 'unknown';
+  }
+}
+
 /** Snapshot of everyone currently in the room, local participant first. */
 export function readParticipants(room: Room): VoiceParticipant[] {
   const local = room.localParticipant;
@@ -61,6 +81,8 @@ export function readParticipants(room: Room): VoiceParticipant[] {
     isSpeaking: local.isSpeaking,
     isMuted: !local.isMicrophoneEnabled,
     isSharingScreen: local.isScreenShareEnabled,
+    audioLevel: local.audioLevel,
+    connectionQuality: toQuality(local.connectionQuality),
   };
 
   const remotes = [...room.remoteParticipants.values()].map((participant) => ({
@@ -69,9 +91,34 @@ export function readParticipants(room: Room): VoiceParticipant[] {
     isSpeaking: participant.isSpeaking,
     isMuted: !participant.isMicrophoneEnabled,
     isSharingScreen: participant.isScreenShareEnabled,
+    audioLevel: participant.audioLevel,
+    connectionQuality: toQuality(participant.connectionQuality),
   }));
 
   return [self, ...remotes];
+}
+
+/**
+ * Levels and speaking flags change constantly; re-rendering on every poll would
+ * thrash the list, so only meaningful changes count.
+ */
+export function participantsChanged(
+  previous: VoiceParticipant[],
+  next: VoiceParticipant[],
+): boolean {
+  if (previous.length !== next.length) return true;
+
+  return next.some((participant, index) => {
+    const before = previous[index];
+    return (
+      before.id !== participant.id ||
+      before.isSpeaking !== participant.isSpeaking ||
+      before.isMuted !== participant.isMuted ||
+      before.isSharingScreen !== participant.isSharingScreen ||
+      before.connectionQuality !== participant.connectionQuality ||
+      Math.round((before.audioLevel ?? 0) * 20) !== Math.round((participant.audioLevel ?? 0) * 20)
+    );
+  });
 }
 
 /**

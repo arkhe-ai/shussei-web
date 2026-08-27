@@ -58,6 +58,18 @@
 
   --animate-caret: caret-blink 1.1s steps(1) infinite;
   --animate-pulse-ring: pulse-ring 1.4s ease-out infinite;
+  --animate-blink: blink 1s ease-in-out infinite;
+  --animate-blink-slow: blink 2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
 }
 
 @keyframes caret-blink {
