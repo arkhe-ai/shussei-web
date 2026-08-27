@@ -129,3 +129,21 @@ Os DTOs vivem em `lib/types.ts` e espelham o contrato do plano.
 O visual é um terminal CLI/cyberpunk (âmbar sobre preto, monoespaçado). Todas as
 cores, bordas e fontes são tokens em `app/globals.css` (`@theme`) — trocar a
 pele do app é editar esse bloco, não os componentes.
+
+## Sintoma comum: o login com Google aponta para `localhost:3001`
+
+Se o botão "Entrar com Google" leva para `http://localhost:3001/...` em vez do
+endereço do servidor, o build rodou **sem** `NEXT_PUBLIC_API_BASE_URL`. O valor
+é inlinado durante o `next build`, então defini-lo depois (env de runtime do
+compose, `export` antes do `npm start`) não altera o bundle já gerado — é
+preciso rebuildar passando a variável:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://SEU-IP:3001 npm run build
+```
+
+No Docker, como build-arg: `--build-arg NEXT_PUBLIC_API_BASE_URL=...`.
+
+Use o IP/host que o **navegador do usuário** alcança: `localhost` sempre aponta
+para a máquina de quem está acessando. A tela de login mostra um aviso vermelho
+quando detecta essa situação (`components/config-warning.tsx`).

@@ -2,6 +2,7 @@
 
 import { motion } from 'motion/react';
 import { BrowserSupportNote } from '../../components/browser-support-note';
+import { ConfigWarning } from '../../components/config-warning';
 import { CommandLink } from '../../components/ui/command-button';
 import { KeyHint } from '../../components/ui/key-hint';
 import { Panel } from '../../components/ui/panel';
@@ -29,6 +30,8 @@ export default function LoginPage() {
             comunicação interna · acesso restrito
           </p>
         </motion.div>
+
+        <ConfigWarning />
 
         <Panel label="autenticação" right="v0.1.0">
           <div className="space-y-4">
