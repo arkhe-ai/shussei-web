@@ -19,6 +19,11 @@ cp .env.example .env.local
 npm run dev
 ```
 
+O `.env.local` fica na **raiz deste repositório** (ao lado do `package.json`) e é
+gitignored — cada máquina cria o seu. Depois de copiar, **edite o valor de
+`NEXT_PUBLIC_API_BASE_URL`**: o padrão do exemplo é `localhost`, que só serve se
+o navegador estiver na mesma máquina do backend. Ver "Variáveis de ambiente".
+
 | Script | O que faz |
 | --- | --- |
 | `npm run dev` | Sobe o cliente em `http://localhost:3000` |
@@ -31,12 +36,23 @@ npm run dev
 
 | Variável | Descrição |
 | --- | --- |
-| `NEXT_PUBLIC_API_BASE_URL` | Base da `shussei-api`, sem barra no final. Padrão de dev: `http://localhost:3001` |
+| `NEXT_PUBLIC_API_BASE_URL` | Base da `shussei-api`, sem barra no final. Precisa ser o endereço que o **navegador do usuário** alcança |
 | `NEXT_PUBLIC_MOCK` | `1` liga o modo mock (veja abaixo). Nunca use em produção |
 
-> `NEXT_PUBLIC_*` é inlinado no bundle **em tempo de build**. No Docker isso
-> significa passar como `--build-arg`, não só como env de runtime — o
-> `Dockerfile` já expõe os dois ARGs.
+Onde colocar, em ordem de precedência (o Next lê todos, do mais específico ao
+menos): `.env.local` → `.env.development` / `.env.production` → `.env`. Na
+prática: **use `.env.local`** para configuração de máquina, e ele precisa
+existir **antes** de rodar `npm run dev` ou `npm run build`.
+
+Duas regras que causam 90% dos problemas:
+
+1. **`NEXT_PUBLIC_*` é congelado no `next build`.** Editar o `.env` depois, ou
+   passar a env só em runtime (`environment:` do compose, `export` antes do
+   `npm start`), não muda o bundle que já foi para o navegador. Tem que
+   rebuildar. No Docker vai como `--build-arg` — o `Dockerfile` já expõe os ARGs.
+2. **`localhost` é sempre a máquina de quem acessa.** Se o app é servido em
+   `http://100.102.91.4:3000`, a API precisa ser `http://100.102.91.4:3001`, não
+   `http://localhost:3001`. A tela de login detecta essa combinação e avisa.
 
 ### Modo mock
 
