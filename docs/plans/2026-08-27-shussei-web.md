@@ -135,7 +135,7 @@ export type EphemeralMessage = {
 - Consumes: none
 - Produces: `apiFetch<T>(path: string, init?: RequestInit): Promise<T>`, `SessionUser`, `ChannelDto`, `EphemeralMessage`
 
-- [ ] **Step 1: Write the failing API client test**
+- [x] **Step 1: Write the failing API client test**
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -153,12 +153,12 @@ describe('apiFetch', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- tests/components/smoke.test.tsx`
 Expected: FAIL with `Cannot find module '../../lib/api'`
 
-- [ ] **Step 3: Create the app shell, DTOs, and API client**
+- [x] **Step 3: Create the app shell, DTOs, and API client**
 
 ```ts
 // lib/types.ts
@@ -215,12 +215,12 @@ export default function HomePage() {
 }
 ```
 
-- [ ] **Step 4: Re-run the test and verify it passes**
+- [x] **Step 4: Re-run the test and verify it passes**
 
 Run: `npm test -- tests/components/smoke.test.tsx`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add package.json next.config.ts tsconfig.json .env.example app lib tests
@@ -242,7 +242,7 @@ git commit -m "feat(web): bootstrap next app shell"
 - Consumes: `apiFetch<{ user: SessionUser | null }>`
 - Produces: `getCurrentUser(): Promise<SessionUser | null>`, `buildGoogleLoginUrl(): string`, `useAuth(): { user: SessionUser | null; isLoading: boolean }`
 
-- [ ] **Step 1: Write the failing login page test**
+- [x] **Step 1: Write the failing login page test**
 
 ```tsx
 import { render, screen } from '@testing-library/react';
@@ -261,12 +261,12 @@ describe('LoginPage', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- tests/components/login-page.test.tsx`
 Expected: FAIL with missing `app/login/page`
 
-- [ ] **Step 3: Implement auth helpers and login UI**
+- [x] **Step 3: Implement auth helpers and login UI**
 
 ```ts
 // lib/auth.ts
@@ -310,7 +310,7 @@ export default function LoginPage() {
 }
 ```
 
-- [ ] **Step 4: Add `useAuth` and the access denied page, then re-run tests**
+- [x] **Step 4: Add `useAuth` and the access denied page, then re-run tests**
 
 ```ts
 // hooks/use-auth.ts
@@ -340,7 +340,7 @@ export default function AccessDeniedPage() {
 Run: `npm test -- tests/components/login-page.test.tsx`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/login app/access-denied components lib hooks app/layout.tsx tests/components/login-page.test.tsx
@@ -365,7 +365,7 @@ git commit -m "feat(web): add auth entry flow"
 - Consumes: `/api/v1/channels`, `/api/v1/channels/:channelId/messages`, Socket.IO events `presence.snapshot`, `presence.changed`, `chat.message`
 - Produces: `useChannels(): { channels: ChannelDto[]; isLoading: boolean }`, `useChat(channelId: string): { messages: EphemeralMessage[]; sendMessage(body: string): void }`, `usePresence(userId: string): { onlineUserIds: string[]; channelOccupancy: Record<string, string[]> }`
 
-- [ ] **Step 1: Write the failing chat panel test**
+- [x] **Step 1: Write the failing chat panel test**
 
 ```tsx
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -401,12 +401,12 @@ describe('ChatPanel', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- tests/components/chat-panel.test.tsx`
 Expected: FAIL with missing `components/chat-panel`
 
-- [ ] **Step 3: Implement the Socket.IO client, hooks, and chat panel**
+- [x] **Step 3: Implement the Socket.IO client, hooks, and chat panel**
 
 ```ts
 // lib/socket.ts
@@ -511,7 +511,7 @@ export function ChatPanel({
 }
 ```
 
-- [ ] **Step 4: Add the channel page composition and re-run tests**
+- [x] **Step 4: Add the channel page composition and re-run tests**
 
 ```tsx
 // app/channels/[channelId]/page.tsx
@@ -526,7 +526,7 @@ export default async function ChannelPage({ params }: { params: Promise<{ channe
 Run: `npm test -- tests/components/chat-panel.test.tsx`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/channels components hooks lib tests/components/chat-panel.test.tsx
@@ -546,7 +546,7 @@ git commit -m "feat(web): add channels and chat shell"
 - Consumes: `POST /api/v1/channels/:channelId/voice-token`, `voice.join`, `voice.leave`
 - Produces: `connectToVoiceRoom(channelId: string): Promise<{ roomName: string }>`, `useVoiceRoom(channelId: string): { isConnected: boolean; isMuted: boolean; join(): Promise<void>; leave(): Promise<void>; toggleMute(): Promise<void> }`
 
-- [ ] **Step 1: Write the failing voice panel test**
+- [x] **Step 1: Write the failing voice panel test**
 
 ```tsx
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -574,12 +574,12 @@ describe('VoicePanel', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- tests/components/voice-panel.test.tsx`
 Expected: FAIL with missing `components/voice-panel`
 
-- [ ] **Step 3: Implement LiveKit connection helpers and `VoicePanel`**
+- [x] **Step 3: Implement LiveKit connection helpers and `VoicePanel`**
 
 ```ts
 // lib/livekit.ts
@@ -645,7 +645,7 @@ export function VoicePanel({
 }
 ```
 
-- [ ] **Step 4: Implement `useVoiceRoom` and re-run tests**
+- [x] **Step 4: Implement `useVoiceRoom` and re-run tests**
 
 ```ts
 // hooks/use-voice-room.ts
@@ -686,7 +686,7 @@ export function useVoiceRoom(channelId: string) {
 Run: `npm test -- tests/components/voice-panel.test.tsx`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/voice-panel.tsx hooks/use-voice-room.ts lib/livekit.ts components/app-shell.tsx tests/components/voice-panel.test.tsx
@@ -707,7 +707,7 @@ git commit -m "feat(web): add voice room controls"
 - Consumes: connected `Room` from `useVoiceRoom`
 - Produces: `startScreenShare(room: Room): Promise<'screen+audio' | 'screen-only'>`, `stopScreenShare(room: Room): Promise<void>`
 
-- [ ] **Step 1: Write the failing screen-share button test**
+- [x] **Step 1: Write the failing screen-share button test**
 
 ```tsx
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -725,12 +725,12 @@ describe('ScreenShareButton', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- tests/components/screen-share-button.test.tsx`
 Expected: FAIL with missing `components/screen-share-button`
 
-- [ ] **Step 3: Implement screen share helpers and UI**
+- [x] **Step 3: Implement screen share helpers and UI**
 
 ```ts
 // lib/livekit.ts
@@ -796,7 +796,7 @@ export function ScreenShareButton({
 }
 ```
 
-- [ ] **Step 4: Add a Playwright smoke test and run the suite**
+- [x] **Step 4: Add a Playwright smoke test and run the suite**
 
 ```ts
 import { test, expect } from '@playwright/test';
@@ -810,7 +810,7 @@ test('login page renders the Google CTA', async ({ page }) => {
 Run: `npm test && npx playwright test tests/e2e/login.spec.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add components/screen-share-button.tsx lib/livekit.ts hooks/use-voice-room.ts components/voice-panel.tsx tests/e2e/login.spec.ts
