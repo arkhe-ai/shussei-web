@@ -93,3 +93,79 @@ export async function startScreenShare(room: Room): Promise<ScreenShareMode> {
 export async function stopScreenShare(room: Room): Promise<void> {
   await room.localParticipant.setScreenShareEnabled(false);
 }
+
+/**
+ * A playable track, normalised so the mock transport can produce one too.
+ * `attach`/`detach` hand the track to a <video>/<audio> element.
+ */
+export type MediaFeed = {
+  id: string;
+  participantName: string;
+  isLocal: boolean;
+  attach: (element: HTMLMediaElement) => void;
+  detach: (element: HTMLMediaElement) => void;
+};
+
+function toFeed(
+  publication: { trackSid: string; track?: { attach: (el: never) => void; detach: (el: never) => void } | null },
+  participantName: string,
+  isLocal: boolean,
+): MediaFeed | null {
+  const track = publication.track;
+  if (!track) return null;
+
+  return {
+    id: publication.trackSid,
+    participantName,
+    isLocal,
+    attach: (element) => track.attach(element as never),
+    detach: (element) => track.detach(element as never),
+  };
+}
+
+/** Every screen share currently published in the room, local one included. */
+export function readScreenFeeds(room: Room): MediaFeed[] {
+  const feeds: MediaFeed[] = [];
+
+  const local = room.localParticipant;
+  const localScreen = local.getTrackPublication(Track.Source.ScreenShare);
+  if (localScreen) {
+    const feed = toFeed(localScreen, local.name || local.identity, true);
+    if (feed) feeds.push(feed);
+  }
+
+  for (const participant of room.remoteParticipants.values()) {
+    const publication = participant.getTrackPublication(Track.Source.ScreenShare);
+    if (!publication) continue;
+    const feed = toFeed(publication, participant.name || participant.identity, false);
+    if (feed) feeds.push(feed);
+  }
+
+  return feeds;
+}
+
+/**
+ * Remote audio (microphones and shared system audio). LiveKit does not attach
+ * these on its own, so the app has to render an element per feed or nobody
+ * hears anything.
+ */
+export function readAudioFeeds(room: Room): MediaFeed[] {
+  const feeds: MediaFeed[] = [];
+
+  for (const participant of room.remoteParticipants.values()) {
+    for (const source of [Track.Source.Microphone, Track.Source.ScreenShareAudio]) {
+      const publication = participant.getTrackPublication(source);
+      if (!publication) continue;
+      const feed = toFeed(publication, participant.name || participant.identity, false);
+      if (feed) feeds.push(feed);
+    }
+  }
+
+  return feeds;
+}
+
+/** Resumes playback after browser autoplay policies block it. */
+export async function resumeRoomAudio(room: Room): Promise<void> {
+  if (room.canPlaybackAudio) return;
+  await room.startAudio();
+}

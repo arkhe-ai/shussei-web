@@ -12,6 +12,9 @@ import type { ChannelDto, VoiceParticipant } from '../lib/types';
 import { ChannelSidebar } from './channel-sidebar';
 import { ChatPanel } from './chat-panel';
 import { PresenceList } from './presence-list';
+import { RoomAudio } from './room-audio';
+import { ScreenShareButton } from './screen-share-button';
+import { ScreenStage } from './screen-stage';
 import { CommandButton } from './ui/command-button';
 import { KeyHint } from './ui/key-hint';
 import { Panel } from './ui/panel';
@@ -83,6 +86,12 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
       if ((event.key === 'm' || event.key === 'M') && voice.isConnected) {
         event.preventDefault();
         void voice.toggleMute();
+        return;
+      }
+
+      if ((event.key === 's' || event.key === 'S') && voice.isConnected) {
+        event.preventDefault();
+        void (voice.isSharingScreen ? voice.stopShare() : voice.startShare());
       }
     }
 
@@ -138,17 +147,28 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
             ) : null}
 
             {activeChannel?.type === 'voice' ? (
-              <VoicePanel
-                channelName={activeChannel.name}
-                isConnected={voice.isConnected}
-                isConnecting={voice.isConnecting}
-                isMuted={voice.isMuted}
-                participants={voiceParticipants}
-                error={voice.error}
-                onJoin={voice.join}
-                onLeave={voice.leave}
-                onToggleMute={voice.toggleMute}
-              />
+              <>
+                <VoicePanel
+                  channelName={activeChannel.name}
+                  isConnected={voice.isConnected}
+                  isConnecting={voice.isConnecting}
+                  isMuted={voice.isMuted}
+                  participants={voiceParticipants}
+                  error={voice.error}
+                  onJoin={voice.join}
+                  onLeave={voice.leave}
+                  onToggleMute={voice.toggleMute}
+                >
+                  <ScreenShareButton
+                    isSharing={voice.isSharingScreen}
+                    onStart={voice.startShare}
+                    onStop={voice.stopShare}
+                  />
+                </VoicePanel>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <ScreenStage feeds={voice.screenFeeds} />
+                </div>
+              </>
             ) : null}
           </main>
 
@@ -191,10 +211,15 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
                 <KeyHint keys="enter">entrar na voz</KeyHint>
               ) : null}
               {voice.isConnected ? <KeyHint keys="M">mutar</KeyHint> : null}
+              {voice.isConnected && voiceChannelId ? (
+                <KeyHint keys="S">compartilhar tela</KeyHint>
+              ) : null}
             </>
           }
         />
       </div>
+
+      <RoomAudio feeds={voice.audioFeeds} />
     </div>
   );
 }
