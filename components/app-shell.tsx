@@ -7,13 +7,16 @@ import { useChannels } from '../hooks/use-channels';
 import { useChat } from '../hooks/use-chat';
 import { useDirectory } from '../hooks/use-directory';
 import { usePresence } from '../hooks/use-presence';
-import type { ChannelDto } from '../lib/types';
+import { useVoiceRoom } from '../hooks/use-voice-room';
+import type { ChannelDto, VoiceParticipant } from '../lib/types';
 import { ChannelSidebar } from './channel-sidebar';
 import { ChatPanel } from './chat-panel';
 import { PresenceList } from './presence-list';
+import { CommandButton } from './ui/command-button';
 import { KeyHint } from './ui/key-hint';
 import { Panel } from './ui/panel';
 import { StatusBar } from './ui/status-bar';
+import { VoicePanel } from './voice-panel';
 
 export function AppShell({ initialChannelId }: { initialChannelId: string }) {
   const router = useRouter();
@@ -24,7 +27,21 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
 
   const activeChannel = channels.find((channel) => channel.id === initialChannelId) ?? null;
   const textChannelId = activeChannel?.type === 'text' ? activeChannel.id : null;
+  const voiceChannelId = activeChannel?.type === 'voice' ? activeChannel.id : null;
+
   const { messages, isLoading: isChatLoading, sendMessage } = useChat(textChannelId);
+  const voice = useVoiceRoom(voiceChannelId);
+
+  const connectedChannel =
+    channels.find((channel) => channel.id === voice.connectedChannelId) ?? null;
+
+  // LiveKit is the truth for who is actually publishing media; the presence
+  // snapshot covers everyone the backend says is in the room.
+  const occupancyParticipants: VoiceParticipant[] = (
+    channelOccupancy[voiceChannelId ?? ''] ?? []
+  ).map((userId) => ({ id: userId, name: usersById[userId]?.name ?? userId }));
+  const voiceParticipants =
+    voice.participants.length > 0 ? voice.participants : occupancyParticipants;
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -32,11 +49,11 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
     }
   }, [isAuthLoading, user, router]);
 
-  // Arrow keys walk the channel list whenever focus is not inside a text field.
+  // Keyboard-first navigation: arrows walk channels, enter joins a voice
+  // channel, M toggles the microphone. Ignored while typing.
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
 
       const target = event.target as HTMLElement | null;
       if (
@@ -46,18 +63,32 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
         return;
       }
 
-      if (channels.length === 0) return;
-      event.preventDefault();
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        if (channels.length === 0) return;
+        event.preventDefault();
 
-      const index = channels.findIndex((channel) => channel.id === initialChannelId);
-      const delta = event.key === 'ArrowDown' ? 1 : -1;
-      const next = channels[(index + delta + channels.length) % channels.length];
-      router.push(`/channels/${next.id}`);
+        const index = channels.findIndex((channel) => channel.id === initialChannelId);
+        const delta = event.key === 'ArrowDown' ? 1 : -1;
+        const next = channels[(index + delta + channels.length) % channels.length];
+        router.push(`/channels/${next.id}`);
+        return;
+      }
+
+      if (event.key === 'Enter' && voiceChannelId && !voice.isConnected) {
+        event.preventDefault();
+        void voice.join();
+        return;
+      }
+
+      if ((event.key === 'm' || event.key === 'M') && voice.isConnected) {
+        event.preventDefault();
+        void voice.toggleMute();
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [channels, initialChannelId, router]);
+  }, [channels, initialChannelId, router, voice, voiceChannelId]);
 
   function handleSelect(channel: ChannelDto) {
     router.push(`/channels/${channel.id}`);
@@ -67,11 +98,15 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
     return <BootScreen />;
   }
 
+  const showVoiceDock =
+    voice.isConnected && connectedChannel !== null && connectedChannel.id !== activeChannel?.id;
+
   return (
     <div className="grid h-dvh grid-cols-[230px_1fr] overflow-hidden bg-base-900">
       <ChannelSidebar
         channels={channels}
         activeChannelId={activeChannel?.id ?? null}
+        connectedVoiceChannelId={voice.connectedChannelId}
         channelOccupancy={channelOccupancy}
         usersById={usersById}
         isLoading={areChannelsLoading}
@@ -103,11 +138,17 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
             ) : null}
 
             {activeChannel?.type === 'voice' ? (
-              <Panel label={`)) ${activeChannel.name}`} right="canal de voz">
-                <p className="text-[13px] text-content-secondary">
-                  Canal de voz selecionado. Os controles de conexão entram na próxima etapa.
-                </p>
-              </Panel>
+              <VoicePanel
+                channelName={activeChannel.name}
+                isConnected={voice.isConnected}
+                isConnecting={voice.isConnecting}
+                isMuted={voice.isMuted}
+                participants={voiceParticipants}
+                error={voice.error}
+                onJoin={voice.join}
+                onLeave={voice.leave}
+                onToggleMute={voice.toggleMute}
+              />
             ) : null}
           </main>
 
@@ -120,13 +161,36 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
           />
         </div>
 
+        {showVoiceDock ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-line bg-base-850 px-3 py-1.5">
+            <span className="text-[11px] text-online glow">
+              {`)) ${connectedChannel.name}`}
+            </span>
+            <span className="text-[11px] text-content-muted">
+              {voice.isMuted ? 'microfone mudo' : 'microfone ativo'}
+            </span>
+            <div className="ml-auto flex gap-2">
+              <CommandButton hotkey="M" onClick={() => void voice.toggleMute()}>
+                {voice.isMuted ? 'Ativar' : 'Mutar'}
+              </CommandButton>
+              <CommandButton hotkey="X" tone="danger" onClick={() => void voice.leave()}>
+                Desconectar
+              </CommandButton>
+            </div>
+          </div>
+        ) : null}
+
         <StatusBar
           userName={user.name}
           isConnected={isConnected}
           hints={
             <>
               <KeyHint keys="up/down">navegar canais</KeyHint>
-              <KeyHint keys="enter">enviar</KeyHint>
+              {activeChannel?.type === 'text' ? <KeyHint keys="enter">enviar</KeyHint> : null}
+              {voiceChannelId && !voice.isConnected ? (
+                <KeyHint keys="enter">entrar na voz</KeyHint>
+              ) : null}
+              {voice.isConnected ? <KeyHint keys="M">mutar</KeyHint> : null}
             </>
           }
         />
