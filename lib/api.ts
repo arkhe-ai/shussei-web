@@ -1,4 +1,4 @@
-import { isMockMode } from './env';
+import { getApiBaseUrl, isMockMode } from './env';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -16,7 +16,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     return mockApiFetch<T>(path, init);
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const baseUrl = getApiBaseUrl();
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     credentials: 'include',

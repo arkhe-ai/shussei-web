@@ -13,6 +13,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
+    env: {
+      NEXT_PUBLIC_API_BASE_URL: 'http://localhost:3001',
+    },
     include: ['tests/**/*.test.{ts,tsx}'],
     exclude: ['tests/e2e/**'],
   },
