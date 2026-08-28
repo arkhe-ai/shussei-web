@@ -7,6 +7,7 @@ import { DEFAULT_DEVICE_ID } from '../lib/audio-devices';
 import { isMockMode, isMockTrafficEnabled } from '../lib/env';
 import {
   type MediaFeed,
+  type ScreenShareResult,
   ROOM_EVENTS,
   connectToVoiceRoom,
   disconnectFromVoiceRoom,
@@ -101,7 +102,7 @@ export type VoiceRoom = {
   selectInputDevice: (deviceId: string) => Promise<void>;
   selectOutputDevice: (deviceId: string) => void;
   setParticipantVolume: (participantId: string, volume: number) => void;
-  startShare: () => Promise<ScreenShareMode>;
+  startShare: () => Promise<ScreenShareResult>;
   stopShare: () => Promise<void>;
 };
 
@@ -432,7 +433,7 @@ export function useVoiceRoom(
     });
   }, []);
 
-  const startShare = useCallback(async (): Promise<ScreenShareMode> => {
+  const startShare = useCallback(async (): Promise<ScreenShareResult> => {
     if (isMockMode()) {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       mockScreenStreamRef.current = stream;
@@ -456,14 +457,14 @@ export function useVoiceRoom(
       ]);
       setIsSharingScreen(true);
 
-      return stream.getAudioTracks().length > 0 ? 'screen+audio' : 'screen-only';
+      return { mode: stream.getAudioTracks().length > 0 ? 'screen+audio' : 'screen-only' };
     }
 
-    if (!room) return 'screen-only';
+    if (!room) return { mode: 'screen-only' };
 
-    const mode = await startScreenShare(room);
+    const result = await startScreenShare(room);
     setIsSharingScreen(true);
-    return mode;
+    return result;
   }, [options.selfId, room, stopMockShare]);
 
   const stopShare = useCallback(async () => {

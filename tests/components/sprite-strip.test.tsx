@@ -12,13 +12,11 @@ const room: VoiceParticipant[] = [
 function stubReducedMotion(reduce: boolean) {
   vi.stubGlobal(
     'matchMedia',
-    vi
-      .fn()
-      .mockReturnValue({
-        matches: reduce,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      }),
+    vi.fn().mockReturnValue({
+      matches: reduce,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
   );
 }
 
@@ -82,5 +80,55 @@ describe('SpriteStrip', () => {
     expect(durations).toHaveLength(room.length);
     // Marching in lockstep would read as one animation, not a room of people.
     expect(new Set(durations).size).toBeGreaterThan(1);
+  });
+});
+
+describe('SpriteStrip anchoring', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('turns the character around without moving it', () => {
+    // The travelling track is as wide as the strip. Anchoring the flip to it
+    // meant `scaleX(-1)` mirrored a strip-wide box and threw the sprite clean
+    // off the right edge on every turn, so it was visible half the time.
+    stubReducedMotion(false);
+    const { container } = render(<SpriteStrip participants={room} />);
+
+    const flipped = [...container.querySelectorAll('span[style]')].filter((element) =>
+      (element.getAttribute('style') ?? '').includes('sprite-face'),
+    );
+
+    expect(flipped).toHaveLength(room.length);
+    for (const element of flipped) {
+      expect(element.className).toContain('w-[22px]');
+    }
+  });
+
+  it('keeps the name out of the mirrored box', () => {
+    stubReducedMotion(false);
+    const { container } = render(<SpriteStrip participants={room} />);
+
+    const flipped = [...container.querySelectorAll('span[style]')].find((element) =>
+      (element.getAttribute('style') ?? '').includes('sprite-face'),
+    );
+
+    // Inside it, the label would render back to front every other lap.
+    expect(flipped?.textContent).toBe('');
+    expect(screen.getByText('ana')).toBeInTheDocument();
+  });
+
+  it('centres the name on the character, not on the strip', () => {
+    stubReducedMotion(false);
+    const { container } = render(<SpriteStrip participants={room} />);
+
+    const label = screen.getByText('ana');
+    const anchor = label.parentElement;
+
+    // `left-1/2 -translate-x-1/2` is only correct if the box it centres in is
+    // the character, so the anchor has to carry the sprite's width.
+    expect(label.className).toContain('left-1/2');
+    expect(anchor?.className).toContain('w-[22px]');
+    expect(container.contains(anchor)).toBe(true);
   });
 });

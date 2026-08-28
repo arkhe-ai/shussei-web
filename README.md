@@ -133,6 +133,19 @@ O palco tem dois arranjos e uma tela cheia:
 Quem estava em foco parar de transmitir devolve você para a grade, e a última
 tela sair fecha a tela cheia — ninguém fica preso em uma tela cheia vazia.
 
+### Áudio do sistema
+
+Captura e publicação são passos separados, e não um
+`setScreenShareEnabled(true, { audio: true })`. Aquela chamada publica vídeo e
+áudio juntos: se o SFU recusa a track de áudio, ela leva o compartilhamento
+inteiro junto e a sala renegocia — foi o sintoma relatado de "cai a conexão do
+LiveKit e reabre" ao compartilhar com áudio, enquanto sem áudio funcionava.
+
+Agora o seletor de tela abre **uma vez**, o vídeo é publicado sempre, e uma falha
+ao publicar o áudio é isolada: a imagem continua no ar e a mensagem mostra o erro
+cru do servidor, em vez de um texto genérico. Como as tracks passam a ser
+publicadas à mão, `stopScreenShare` também despublica as duas à mão.
+
 ## Bonecos
 
 Cada pessoa é um personagem pixelado de 12x14, desenhado em SVG na mesma paleta

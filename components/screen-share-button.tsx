@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import type { ScreenShareMode } from '../lib/types';
+import type { ScreenShareResult } from '../lib/livekit';
 import { CommandButton } from './ui/command-button';
+
+const AUDIO_PUBLISH_NOTICE =
+  'Sua tela está sendo transmitida, mas o servidor recusou o áudio do sistema. A imagem continua no ar.';
 
 const FALLBACK_NOTICE =
   'Compartilhando apenas a imagem: este navegador não entregou o áudio do sistema. Chrome/Edge no desktop, compartilhando uma aba ou a tela inteira, costumam permitir.';
@@ -13,7 +16,7 @@ export function ScreenShareButton({
   onStop,
 }: {
   isSharing: boolean;
-  onStart: () => Promise<ScreenShareMode>;
+  onStart: () => Promise<ScreenShareResult>;
   onStop: () => Promise<void>;
 }) {
   const [notice, setNotice] = useState<string | null>(null);
@@ -22,10 +25,13 @@ export function ScreenShareButton({
     setNotice(null);
 
     try {
-      const mode = await onStart();
-      if (mode === 'screen-only') {
-        setNotice(FALLBACK_NOTICE);
-      }
+      const { mode, audioError } = await onStart();
+      if (mode !== 'screen-only') return;
+
+      // The browser handed over an audio track and publishing it failed: the
+      // picture is up regardless, and the raw error is worth showing so it can
+      // be reported rather than guessed at.
+      setNotice(audioError ? `${AUDIO_PUBLISH_NOTICE} (${audioError})` : FALLBACK_NOTICE);
     } catch (cause) {
       const name = cause instanceof Error ? cause.name : '';
       // The user dismissing the picker is not an error worth reporting.

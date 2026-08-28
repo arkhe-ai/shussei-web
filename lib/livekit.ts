@@ -1,4 +1,11 @@
-import { ConnectionQuality, Room, RoomEvent, Track } from 'livekit-client';
+import {
+  ConnectionQuality,
+  type LocalTrack,
+  Room,
+  RoomEvent,
+  Track,
+  createLocalScreenTracks,
+} from 'livekit-client';
 import { apiFetch } from './api';
 import type {
   ConnectionQuality as AppConnectionQuality,
@@ -129,24 +136,73 @@ export function participantsChanged(
   });
 }
 
+export type ScreenShareResult = {
+  mode: ScreenShareMode;
+  /** Why the system audio did not make it, when the browser did hand one over. */
+  audioError?: string;
+};
+
 /**
- * Publishes the selected screen (and system audio when the browser hands it
- * over). Returns which of the two the user actually got, so the UI can explain
- * the fallback.
+ * Publishes the selected screen, and its system audio when there is one.
+ *
+ * Capture and publish are separate steps rather than one
+ * `setScreenShareEnabled(true, { audio: true })`, because that call publishes
+ * both tracks together: an audio track the SFU rejects takes the whole
+ * screen share down with it, and the room renegotiates. Here the picker still
+ * opens once, the picture always goes out, and a failed audio publish is
+ * reported instead of being fatal.
  */
-export async function startScreenShare(room: Room): Promise<ScreenShareMode> {
-  await room.localParticipant.setScreenShareEnabled(true, {
-    audio: true,
-    systemAudio: 'include',
+export async function startScreenShare(room: Room): Promise<ScreenShareResult> {
+  const tracks = await createLocalScreenTracks({ audio: true, systemAudio: 'include' });
+
+  const video = tracks.find((track) => track.kind === Track.Kind.Video);
+  const audio = tracks.find((track) => track.kind === Track.Kind.Audio);
+
+  if (!video) {
+    tracks.forEach((track) => track.stop());
+    throw new Error('screen_share_no_video');
+  }
+
+  await room.localParticipant.publishTrack(video, { source: Track.Source.ScreenShare });
+
+  // The browser's own "stop sharing" bar ends the track without telling us.
+  video.mediaStreamTrack.addEventListener('ended', () => {
+    void stopScreenShare(room);
   });
 
-  const audioPublication = room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio);
+  if (!audio) {
+    return { mode: 'screen-only' };
+  }
 
-  return audioPublication ? 'screen+audio' : 'screen-only';
+  try {
+    await room.localParticipant.publishTrack(audio, { source: Track.Source.ScreenShareAudio });
+    return { mode: 'screen+audio' };
+  } catch (cause) {
+    audio.stop();
+    return { mode: 'screen-only', audioError: describeCause(cause) };
+  }
+}
+
+/** Keeps the raw failure legible; the UI shows it so it can be reported. */
+function describeCause(cause: unknown): string {
+  if (cause instanceof Error) {
+    return cause.name && cause.name !== 'Error' ? `${cause.name}: ${cause.message}` : cause.message;
+  }
+  return String(cause);
 }
 
 export async function stopScreenShare(room: Room): Promise<void> {
-  await room.localParticipant.setScreenShareEnabled(false);
+  // Published by hand, so they have to come down by hand: disabling the screen
+  // share only unpublishes what `setScreenShareEnabled` itself put up.
+  const sources = [Track.Source.ScreenShare, Track.Source.ScreenShareAudio];
+
+  for (const source of sources) {
+    const publication = room.localParticipant.getTrackPublication(source);
+    const track = publication?.track as LocalTrack | undefined;
+    if (track) {
+      await room.localParticipant.unpublishTrack(track, true);
+    }
+  }
 }
 
 /**

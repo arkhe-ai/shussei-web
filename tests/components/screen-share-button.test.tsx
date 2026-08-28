@@ -2,32 +2,55 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ScreenShareButton } from '../../components/screen-share-button';
 
+function clickShare() {
+  fireEvent.click(screen.getByRole('button', { name: /compartilhar tela/i }));
+}
+
 describe('ScreenShareButton', () => {
   it('shows fallback copy when system audio is not available', async () => {
-    const start = vi.fn().mockResolvedValue('screen-only');
+    const start = vi.fn().mockResolvedValue({ mode: 'screen-only' });
 
     render(<ScreenShareButton isSharing={false} onStart={start} onStop={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: /compartilhar tela/i }));
+    clickShare();
 
     expect(start).toHaveBeenCalled();
     expect(await screen.findByRole('status')).toHaveTextContent(/áudio do sistema/i);
   });
 
   it('stays quiet when system audio came through', async () => {
-    const start = vi.fn().mockResolvedValue('screen+audio');
+    const start = vi.fn().mockResolvedValue({ mode: 'screen+audio' });
 
     render(<ScreenShareButton isSharing={false} onStart={start} onStop={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: /compartilhar tela/i }));
+    clickShare();
 
     await vi.waitFor(() => expect(start).toHaveBeenCalled());
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  it('ignores a dismissed screen picker', async () => {
-    const start = vi.fn().mockRejectedValue(Object.assign(new Error('denied'), { name: 'NotAllowedError' }));
+  it('says the picture is still up when only the audio was rejected', async () => {
+    // The browser did hand over an audio track and the SFU refused it. That is
+    // a different situation from a browser that never offered audio at all, and
+    // the raw error is worth showing so it can be reported rather than guessed.
+    const start = vi.fn().mockResolvedValue({
+      mode: 'screen-only',
+      audioError: 'PublishTrackError: failed to publish',
+    });
 
     render(<ScreenShareButton isSharing={false} onStart={start} onStop={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: /compartilhar tela/i }));
+    clickShare();
+
+    const notice = await screen.findByRole('status');
+    expect(notice).toHaveTextContent(/imagem continua no ar/i);
+    expect(notice).toHaveTextContent(/failed to publish/i);
+  });
+
+  it('ignores a dismissed screen picker', async () => {
+    const start = vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error('denied'), { name: 'NotAllowedError' }));
+
+    render(<ScreenShareButton isSharing={false} onStart={start} onStop={vi.fn()} />);
+    clickShare();
 
     await vi.waitFor(() => expect(start).toHaveBeenCalled());
     expect(screen.queryByRole('status')).not.toBeInTheDocument();

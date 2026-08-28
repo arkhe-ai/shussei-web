@@ -94,7 +94,7 @@ function Walker({
 
   const track = isStatic
     ? { left: `${(index / Math.max(1, total)) * 88 + 4}%` }
-    : { animation: `sprite-walk ${duration}s linear ${delay}s infinite` };
+    : { animation: `sprite-walk ${duration}s ease-in-out ${delay}s infinite` };
 
   return (
     <span
@@ -105,14 +105,13 @@ function Walker({
       )}
       style={track}
     >
-      <span
-        className="relative block"
-        style={
-          isStatic
-            ? undefined
-            : { animation: `sprite-face ${duration}s steps(1) ${delay}s infinite` }
-        }
-      >
+      {/*
+       * Sized to the character on purpose. The travelling track above is as wide
+       * as the strip, and anchoring to it meant `scaleX(-1)` flipped a
+       * strip-wide box — throwing the sprite clean off the right edge on every
+       * turn — and centred the name on the strip instead of on the person.
+       */}
+      <span className="relative block w-[22px]">
         {isTalking ? (
           <span
             className={clsx(
@@ -124,7 +123,15 @@ function Walker({
           </span>
         ) : null}
 
-        <span className="block h-[34px] w-[22px]">
+        {/* Only the character turns around; the label must not read mirrored. */}
+        <span
+          className="block h-[34px] w-[22px]"
+          style={
+            isStatic
+              ? undefined
+              : { animation: `sprite-face ${duration}s steps(1) ${delay}s infinite` }
+          }
+        >
           <Sprite
             presetId={presetId}
             crop="full"
