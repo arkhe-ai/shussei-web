@@ -202,18 +202,21 @@ Os DTOs vivem em `lib/types.ts` e espelham o contrato do plano.
 
 ## TODO / backlog do cliente web
 
+Marcados com **[feito]** os que já estão no cliente; a seção correspondente
+deste README descreve como ficaram.
+
 ### RTC, voz e vídeo
 
-1. **Corrigir flicker no vídeo transmitido.** Investigação concluída: causa provável está no ciclo de attach/detach do `ScreenStage`, provocado por novos objetos `MediaFeed` em sincronizações. Backend LiveKit não apresentou causa. Corrigir no frontend.
-2. **Controles de som.** Adicionar controle de volume de saída por participante e/ou volume global da call.
-3. **Seleção de dispositivos.** Permitir escolher microfone e dispositivo de áudio/saída antes e durante a call.
-4. **Mostrar nome em vez de id na lista de voz.** Chat já usa nome real/personalizado via backend. Falta enviar `name` no token LiveKit e validar nomes dos participantes da call, com fallback para id apenas quando inevitável.
-5. **Não sair do áudio ao clicar em canal de texto.** Navegar entre canais de texto não deve derrubar a conexão de voz se o usuário continua na mesma call.
-6. **Fullscreen e redimensionamento do vídeo transmitido.** Permitir expandir a tela compartilhada para fullscreen e ajustar melhor o tamanho/layout do stage.
+1. **Corrigir flicker no vídeo transmitido.** Investigação concluída: causa provável está no ciclo de attach/detach do `ScreenStage`, provocado por novos objetos `MediaFeed` em sincronizações. Backend LiveKit não apresentou causa. Corrigir no frontend. **Continua aberto** — o diagnóstico está certo e a reescrita do stage não o resolveu: `readScreenFeeds` monta objetos novos a cada evento da sala e o efeito de attach depende da identidade do objeto, então reanexa a cada sync. A correção é chavear por `feed.id` e/ou memoizar os feeds na origem.
+2. **[feito] Controles de som.** Volume por participante, aplicado no `<audio>` de cada feed. Ver "Controles de voz".
+3. **[feito] Seleção de dispositivos.** Entrada e saída, durante a call, em `[C] Dispositivos`. A saída só aparece onde `setSinkId` existe. Ver "Controles de voz".
+4. **Mostrar nome em vez de id na lista de voz.** Chat já usa nome real/personalizado via backend. Falta enviar `name` no token LiveKit e validar nomes dos participantes da call, com fallback para id apenas quando inevitável. **Parte do cliente está pronta**: o fallback para id só acontece quando não há nome, e a lista de presença explica quando o diretório não existe. O envio de `name` no token continua sendo do backend.
+5. **[feito] Não sair do áudio ao clicar em canal de texto.** A causa era o App Router remontar a página a cada troca de segmento dinâmico; o shell passou para `app/channels/layout.tsx`. Ver "Desvios em relação ao plano".
+6. **[feito] Fullscreen e redimensionamento do vídeo transmitido.** Grade, foco com tira de miniaturas e tela cheia (`F`/`G`/`1`–`9`). Ver "Transmissões".
 
 ### UX e identidade visual
 
-7. **Mascotes enquanto falamos.** Explorar um mascote animado/reagente à voz (ex.: estilo CLI / Claude-like) para indicar atividade de fala.
+7. **[feito] Mascotes enquanto falamos.** Personagens pixelados âmbar: a boca segue o `audioLevel` real e, na faixa do rodapé, quem fala para de andar. Ver "Bonecos".
 8. **Botão para trocar a cor/tema.** Adicionar controle na UI para alternar paleta sem editar manualmente os tokens em `app/globals.css`.
 
 ### Colaboração e extensões
@@ -230,7 +233,7 @@ Os DTOs vivem em `lib/types.ts` e espelham o contrato do plano.
 
 ### Conta e sessão
 
-15. **Logout no frontend.** Backend concluído e publicado. Adicionar ação visível e limpar sessão, socket e estado local corretamente.
+15. **[feito] Logout no frontend.** `[sair]` na status bar, derrubando o socket singleton na saída.
 16. **Mudar username no frontend.** Endpoint backend concluído e publicado. Adicionar formulário e atualizar nome exibido sem novo login Google sobrescrever mudança.
 
 ## Lacunas de contrato (precisam de decisão do backend)
