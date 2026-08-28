@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { CrtOverlay } from '@/components/ui/crt-overlay';
 import { Providers } from '@/components/providers';
 import './globals.css';
 
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0d0f14',
+  themeColor: '#0a0705',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="pt-BR">
       <body className="h-full antialiased">
         <Providers>{children}</Providers>
+        <CrtOverlay />
       </body>
     </html>
   );

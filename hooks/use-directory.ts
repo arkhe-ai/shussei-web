@@ -8,9 +8,13 @@ import type { SessionUser } from '../lib/types';
  * Presence events only carry user ids, so the client needs a directory to
  * render names. `GET /api/v1/users` is not part of the agreed contract yet:
  * until shussei-api ships it the query fails silently and the UI falls back to
- * ids (see README, "Contract gaps").
+ * ids (see README, "Contract gaps"). `isAvailable` lets the UI say so instead
+ * of just looking broken.
  */
-export function useDirectory(seed: SessionUser[] = []): Record<string, SessionUser> {
+export function useDirectory(seed: SessionUser[] = []): {
+  usersById: Record<string, SessionUser>;
+  isAvailable: boolean;
+} {
   const query = useQuery({
     queryKey: ['directory'],
     queryFn: async () => {
@@ -26,5 +30,5 @@ export function useDirectory(seed: SessionUser[] = []): Record<string, SessionUs
     usersById[user.id] = user;
   }
 
-  return usersById;
+  return { usersById, isAvailable: !query.isError };
 }

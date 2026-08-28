@@ -60,6 +60,11 @@
   --animate-pulse-ring: pulse-ring 1.4s ease-out infinite;
   --animate-blink: blink 1s ease-in-out infinite;
   --animate-blink-slow: blink 2s ease-in-out infinite;
+  --animate-crt-on: crt-on 620ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-flicker: flicker 9s steps(1) infinite;
+  --animate-glitch: glitch 200ms steps(2) 1;
+  --animate-snow: snow 420ms steps(4) infinite;
+  --animate-sweep: sweep 7s linear infinite;
 }
 
 @keyframes blink {
@@ -123,6 +128,9 @@
       transparent 3px
     );
     opacity: 0.35;
+    /* Mains hum. Kept at a long period and a small amplitude because this sits
+     * over text people read for hours. */
+    animation: var(--animate-flicker);
   }
 
   body::after {
@@ -211,5 +219,210 @@
   .caret::after {
     content: '_';
     animation: var(--animate-caret);
+  }
+}
+
+/*
+ * CRT power-on: the tube lights as a horizontal line, then opens vertically.
+ * Deliberately short — it plays on every boot, so it must never read as a
+ * loading screen the user is waiting on.
+ */
+@keyframes crt-on {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.004) scaleX(0.7);
+    filter: brightness(3.2);
+  }
+  38% {
+    opacity: 1;
+    transform: scaleY(0.004) scaleX(1);
+    filter: brightness(2.6);
+  }
+  62% {
+    transform: scaleY(1) scaleX(1);
+    filter: brightness(1.5);
+  }
+  78% {
+    filter: brightness(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1) scaleX(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes flicker {
+  0%,
+  96%,
+  100% {
+    opacity: 0.35;
+  }
+  96.5% {
+    opacity: 0.26;
+  }
+  97% {
+    opacity: 0.41;
+  }
+  97.6% {
+    opacity: 0.3;
+  }
+}
+
+/* Channel change: a brief horizontal tear, like retuning an analog set. */
+@keyframes glitch {
+  0% {
+    transform: translateX(0);
+    clip-path: inset(0 0 0 0);
+  }
+  25% {
+    transform: translateX(-2px);
+    clip-path: inset(18% 0 62% 0);
+  }
+  50% {
+    transform: translateX(3px);
+    clip-path: inset(54% 0 22% 0);
+  }
+  75% {
+    transform: translateX(-1px);
+    clip-path: inset(76% 0 8% 0);
+  }
+  100% {
+    transform: translateX(0);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Analog snow, for a feed that died. */
+@keyframes snow {
+  0% {
+    background-position: 0 0;
+  }
+  25% {
+    background-position: 12px -7px;
+  }
+  50% {
+    background-position: -9px 11px;
+  }
+  75% {
+    background-position: 6px 4px;
+  }
+  100% {
+    background-position: -4px -12px;
+  }
+}
+
+/* Slow bright band travelling down the tube. */
+@keyframes sweep {
+  0% {
+    transform: translateY(-14vh);
+  }
+  100% {
+    transform: translateY(114vh);
+  }
+}
+
+@layer utilities {
+  /* Plays once when a screen mounts. */
+  .crt-on {
+    animation: var(--animate-crt-on);
+    transform-origin: center;
+  }
+
+  /* Applied for ~200ms on channel change; the key on the element restarts it. */
+  .glitch {
+    animation: var(--animate-glitch);
+  }
+
+  /*
+   * Phosphor snow. Two offset radial gradients beat a canvas here: no JS, no
+   * per-frame paint, and it degrades to a flat texture under reduced motion.
+   */
+  .snow {
+    background-color: var(--color-base-950);
+    background-image:
+      radial-gradient(
+        circle at 30% 20%,
+        color-mix(in srgb, var(--color-amber-200) 22%, transparent) 0.6px,
+        transparent 0.7px
+      ),
+      radial-gradient(
+        circle at 70% 65%,
+        color-mix(in srgb, var(--color-amber-400) 16%, transparent) 0.5px,
+        transparent 0.6px
+      );
+    background-size: 3px 3px, 5px 5px;
+    animation: var(--animate-snow);
+  }
+}
+
+/*
+ * Walking characters in the voice strip.
+ *
+ * One full round trip per cycle instead of `alternate`, so the facing flip can
+ * be a second animation of the same duration and stay in sync with it — with
+ * `alternate` the two would drift apart by a half cycle.
+ */
+@keyframes sprite-walk {
+  0% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(calc(100% - 22px));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes sprite-face {
+  0%,
+  49.9% {
+    transform: scaleX(1);
+  }
+  50%,
+  100% {
+    transform: scaleX(-1);
+  }
+}
+
+@keyframes sprite-step-a {
+  0%,
+  49.9% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes sprite-step-b {
+  0%,
+  49.9% {
+    opacity: 0;
+  }
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .sprite-step-a {
+    animation: sprite-step-a 0.44s steps(1) infinite;
+  }
+
+  .sprite-step-b {
+    animation: sprite-step-b 0.44s steps(1) infinite;
+  }
+
+  /*
+   * Someone talking stops walking. `animation-play-state` does not inherit, so
+   * this has to reach the leg frames inside the SVG as well as the track.
+   */
+  .sprite-halted,
+  .sprite-halted * {
+    animation-play-state: paused !important;
   }
 }

@@ -54,3 +54,10 @@ export type VoiceParticipant = {
 export type MicStatus = 'idle' | 'live' | 'muted' | 'unavailable';
 
 export type ScreenShareMode = 'screen+audio' | 'screen-only';
+
+/**
+ * How the microphone is gated while connected.
+ * - `open`: the mic stays published until muted (the default).
+ * - `ptt`: the mic is closed unless the push-to-talk key is held.
+ */
+export type TalkMode = 'open' | 'ptt';

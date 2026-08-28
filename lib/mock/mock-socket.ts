@@ -1,7 +1,22 @@
+import { isMockTrafficEnabled } from '../env';
 import type { AppSocket, SocketHandler } from '../socket';
 import type { EphemeralMessage } from '../types';
-import { mockChannelOccupancy, mockOnlineUserIds, mockSessionUser } from './data';
+import {
+  mockChannelOccupancy,
+  mockChannels,
+  mockChatter,
+  mockOnlineUserIds,
+  mockSessionUser,
+  mockUsers,
+} from './data';
 import { getMockBuffer, pushMockMessage } from './mock-api';
+
+const CHATTER_INTERVAL_MS = 9_000;
+const VOICE_MOVE_INTERVAL_MS = 21_000;
+
+function pick<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
 
 /**
  * Socket.IO stand-in for NEXT_PUBLIC_MOCK=1. Same event names and payload
@@ -11,6 +26,7 @@ export function createMockSocket(): AppSocket {
   const handlers = new Map<string, Set<SocketHandler>>();
   const occupancy: Record<string, string[]> = structuredClone(mockChannelOccupancy);
   const online = new Set(mockOnlineUserIds);
+  const timers: number[] = [];
   let connected = false;
 
   function dispatch(event: string, payload?: unknown) {
@@ -24,12 +40,64 @@ export function createMockSocket(): AppSocket {
     });
   }
 
+  /**
+   * Other people talking and moving around. Without it the client can only ever
+   * see its own echo, and every "somebody else did something" affordance —
+   * unread badges, the blip, the typewriter — is untestable before the API
+   * exists.
+   */
+  function startAmbientTraffic() {
+    const others = mockUsers.filter((user) => user.id !== mockSessionUser.id);
+    const textChannels = mockChannels.filter((channel) => channel.type === 'text');
+    const voiceChannels = mockChannels.filter((channel) => channel.type === 'voice');
+
+    timers.push(
+      window.setInterval(() => {
+        const author = pick(others);
+        const channel = pick(textChannels);
+
+        const message: EphemeralMessage = {
+          id: `m-sim-${Math.random().toString(36).slice(2, 10)}`,
+          channelId: channel.id,
+          author,
+          body: pick(mockChatter),
+          sentAt: new Date().toISOString(),
+        };
+
+        pushMockMessage(message);
+        dispatch('chat.message', message);
+      }, CHATTER_INTERVAL_MS),
+    );
+
+    timers.push(
+      window.setInterval(() => {
+        const user = pick(others);
+        // Half the time they leave voice entirely; the rest they hop rooms.
+        const target = Math.random() < 0.5 ? null : pick(voiceChannels).id;
+
+        for (const [channelId, occupants] of Object.entries(occupancy)) {
+          occupancy[channelId] = occupants.filter((id) => id !== user.id);
+        }
+        if (target) {
+          occupancy[target] = [...(occupancy[target] ?? []), user.id];
+        }
+
+        dispatch('presence.changed', {
+          userId: user.id,
+          status: 'online',
+          channelId: target,
+        });
+      }, VOICE_MOVE_INTERVAL_MS),
+    );
+  }
+
   function open() {
     if (connected) return;
     setTimeout(() => {
       connected = true;
       dispatch('connect');
       snapshot();
+      if (isMockTrafficEnabled()) startAmbientTraffic();
     }, 150);
   }
 
@@ -89,7 +157,9 @@ export function createMockSocket(): AppSocket {
 
       if (event === 'voice.leave') {
         const { channelId } = payload as { channelId: string };
-        occupancy[channelId] = (occupancy[channelId] ?? []).filter((id) => id !== mockSessionUser.id);
+        occupancy[channelId] = (occupancy[channelId] ?? []).filter(
+          (id) => id !== mockSessionUser.id,
+        );
         setTimeout(
           () =>
             dispatch('presence.changed', {
@@ -115,6 +185,7 @@ export function createMockSocket(): AppSocket {
     },
     disconnect() {
       connected = false;
+      timers.splice(0).forEach((id) => window.clearInterval(id));
       dispatch('disconnect', 'io client disconnect');
     },
   };

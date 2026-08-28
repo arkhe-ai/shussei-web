@@ -1,6 +1,18 @@
 import clsx from 'clsx';
 
+/**
+ * Block-capital banner, the way a terminal tool prints its own name on start.
+ * `compact` is the three-row version used where vertical space is tight.
+ */
 const BANNER = [
+  '███████ ██   ██ ██    ██ ███████ ███████ ███████ ██',
+  '██      ██   ██ ██    ██ ██      ██      ██      ██',
+  '███████ ███████ ██    ██ ███████ ███████ █████   ██',
+  '     ██ ██   ██ ██    ██      ██      ██ ██      ██',
+  '███████ ██   ██  ██████  ███████ ███████ ███████ ██',
+];
+
+const COMPACT_BANNER = [
   '█▀▀ █ █ █ █ █▀▀ █▀▀ █▀▀ █',
   '▀▀█ █▀█ █ █ ▀▀█ ▀▀█ █▀▀ █',
   '▀▀▀ ▀ ▀ ▀▀▀ ▀▀▀ ▀▀▀ ▀▀▀ ▀',
@@ -11,7 +23,7 @@ export function Wordmark({
   variant = 'banner',
 }: {
   className?: string;
-  variant?: 'banner' | 'inline';
+  variant?: 'banner' | 'compact' | 'inline';
 }) {
   if (variant === 'inline') {
     return (
@@ -32,7 +44,7 @@ export function Wordmark({
       role="img"
       className={clsx('select-none text-amber-500 glow-strong leading-[1.05]', className)}
     >
-      {BANNER.join('\n')}
+      {(variant === 'compact' ? COMPACT_BANNER : BANNER).join('\n')}
     </pre>
   );
 }

@@ -17,7 +17,7 @@ const BOOT_LINES = [
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-dvh items-center justify-center px-6 py-10">
+    <main className="crt-on flex min-h-dvh items-center justify-center px-6 py-10">
       <div className="w-full max-w-[580px] space-y-5">
         <motion.div
           initial={{ opacity: 0, y: -6 }}
@@ -25,7 +25,7 @@ export default function LoginPage() {
           transition={{ duration: 0.35, ease: 'easeOut' }}
           className="space-y-2"
         >
-          <Wordmark className="text-[13px] sm:text-[15px]" />
+          <Wordmark className="text-[6px] leading-none sm:text-[9px]" />
           <p className="text-[12px] uppercase tracking-[0.3em] text-content-muted">
             comunicação interna · acesso restrito
           </p>

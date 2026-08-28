@@ -52,6 +52,14 @@ export async function setMicrophoneEnabled(room: Room, enabled: boolean): Promis
   await room.localParticipant.setMicrophoneEnabled(enabled);
 }
 
+/**
+ * Repoints the published microphone at another input device. LiveKit republishes
+ * the track under the hood, so mute state and subscribers survive the switch.
+ */
+export async function switchAudioInput(room: Room, deviceId: string): Promise<void> {
+  await room.switchActiveDevice('audioinput', deviceId);
+}
+
 export function disconnectFromVoiceRoom(room: Room): void {
   void room.disconnect();
 }
@@ -147,6 +155,8 @@ export async function stopScreenShare(room: Room): Promise<void> {
  */
 export type MediaFeed = {
   id: string;
+  /** Matches the app user id, so per-participant volume can key off it. */
+  participantId: string;
   participantName: string;
   isLocal: boolean;
   attach: (element: HTMLMediaElement) => void;
@@ -154,8 +164,11 @@ export type MediaFeed = {
 };
 
 function toFeed(
-  publication: { trackSid: string; track?: { attach: (el: never) => void; detach: (el: never) => void } | null },
-  participantName: string,
+  publication: {
+    trackSid: string;
+    track?: { attach: (el: never) => void; detach: (el: never) => void } | null;
+  },
+  participant: { identity: string; name?: string },
   isLocal: boolean,
 ): MediaFeed | null {
   const track = publication.track;
@@ -163,7 +176,8 @@ function toFeed(
 
   return {
     id: publication.trackSid,
-    participantName,
+    participantId: participant.identity,
+    participantName: participant.name || participant.identity,
     isLocal,
     attach: (element) => track.attach(element as never),
     detach: (element) => track.detach(element as never),
@@ -177,14 +191,14 @@ export function readScreenFeeds(room: Room): MediaFeed[] {
   const local = room.localParticipant;
   const localScreen = local.getTrackPublication(Track.Source.ScreenShare);
   if (localScreen) {
-    const feed = toFeed(localScreen, local.name || local.identity, true);
+    const feed = toFeed(localScreen, local, true);
     if (feed) feeds.push(feed);
   }
 
   for (const participant of room.remoteParticipants.values()) {
     const publication = participant.getTrackPublication(Track.Source.ScreenShare);
     if (!publication) continue;
-    const feed = toFeed(publication, participant.name || participant.identity, false);
+    const feed = toFeed(publication, participant, false);
     if (feed) feeds.push(feed);
   }
 
@@ -203,7 +217,7 @@ export function readAudioFeeds(room: Room): MediaFeed[] {
     for (const source of [Track.Source.Microphone, Track.Source.ScreenShareAudio]) {
       const publication = participant.getTrackPublication(source);
       if (!publication) continue;
-      const feed = toFeed(publication, participant.name || participant.identity, false);
+      const feed = toFeed(publication, participant, false);
       if (feed) feeds.push(feed);
     }
   }

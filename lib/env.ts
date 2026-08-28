@@ -28,3 +28,15 @@ export function isApiBaseUrlConfigured(): boolean {
 export function isMockMode(): boolean {
   return process.env.NEXT_PUBLIC_MOCK === '1';
 }
+
+/**
+ * Ambient traffic in mock mode: other people posting and moving between voice
+ * channels on a timer.
+ *
+ * On by default because half the UI only exists to react to somebody else —
+ * unread badges, the notification blip, the typewriter on an arriving message.
+ * Set NEXT_PUBLIC_MOCK_TRAFFIC=0 to develop in silence.
+ */
+export function isMockTrafficEnabled(): boolean {
+  return isMockMode() && process.env.NEXT_PUBLIC_MOCK_TRAFFIC !== '0';
+}

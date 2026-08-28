@@ -38,6 +38,8 @@ o navegador estiver na mesma máquina do backend. Ver "Variáveis de ambiente".
 | --- | --- |
 | `NEXT_PUBLIC_API_BASE_URL` | Base da `shussei-api`, sem barra no final. Precisa ser o endereço que o **navegador do usuário** alcança |
 | `NEXT_PUBLIC_MOCK` | `1` liga o modo mock (veja abaixo). Nunca use em produção |
+| `NEXT_PUBLIC_MOCK_TRAFFIC` | Só vale com o mock ligado. `0` desliga o tráfego ambiente (padrão: ligado) |
+| `NEXT_PUBLIC_MOCK_TRAFFIC` | Só vale com o mock ligado. `0` desliga o tráfego ambiente (padrão: ligado) |
 
 Onde colocar, em ordem de precedência (o Next lê todos, do mais específico ao
 menos): `.env.local` → `.env.development` / `.env.production` → `.env`. Na
@@ -67,7 +69,16 @@ Com `NEXT_PUBLIC_MOCK=1` o cliente roda inteiro sem backend:
   local, o que permite testar a detecção de áudio do sistema sem servidor;
 - o nível de áudio **dos outros participantes é simulado** (senoide por id),
   já que não existe SFU reportando levels. Com backend real esses valores vêm
-  do LiveKit.
+  do LiveKit;
+- **tráfego ambiente**: a cada 9s alguém escreve em um canal de texto aleatório
+  e a cada 21s alguém entra ou sai de um canal de voz. Metade da interface só
+  reage a *outra pessoa* — badge de não lidas, blip, typewriter na mensagem que
+  chega — e sem isso nada disso é testável antes da API existir. Desligue com
+  `NEXT_PUBLIC_MOCK_TRAFFIC=0`;
+- **transmissões simuladas**: ao entrar na voz, duas telas falsas aparecem no
+  palco, pintadas em `<canvas>` e capturadas com `captureStream()`. São tracks de
+  vídeo de verdade, então grade, foco, tira de miniaturas, tela cheia e o
+  detector de congelamento passam todos pelo caminho real (`lib/mock/mock-screen.ts`).
 
 Serve para desenvolver a UI antes da `shussei-api` existir e para o smoke test
 do Playwright.
@@ -84,6 +95,13 @@ Tudo que é "está funcionando?" tem indicador visível:
 | `ScreenStage` | Vídeo ao vivo de cada tela compartilhada com selo `● AO VIVO` piscando |
 | Dock de voz | Miniatura ao vivo da sua transmissão + medidor, visível enquanto você navega por outros canais |
 | Status bar | Ponto fixo em `conectado`, piscando em `reconectando` |
+| Sidebar | Contador de não lidas por canal de texto (`[3]`, some ao abrir o canal); o título da aba vira `(3) Shussei` |
+| `ScreenStage` | `sem sinal` sobre estática quando a transmissão congela — uma track WebRTC que cai não dispara evento, ela só para de entregar frames |
+| Bonecos | A boca abre conforme o nível de voz real e um anel de fósforo cresce em volta; mudo fecha a boca e apaga o anel |
+| Faixa de voz | Quem está na sala anda pelo rodapé; quem fala para de andar e o nome aparece |
+| Sidebar | Contador de não lidas por canal de texto (`[3]`, some ao abrir); título da aba vira `(3) Shussei` |
+| `ScreenStage` | `sem sinal` sobre estática quando a transmissão congela — uma track WebRTC que cai não dispara evento, ela só para de entregar frames |
+| Avatares | Foto do Google (em fósforo âmbar) ou iniciais; anel ao redor cresce com o nível de voz real da pessoa |
 
 ## Atalhos de teclado
 
@@ -92,9 +110,79 @@ Tudo que é "está funcionando?" tem indicador visível:
 | `↑` / `↓` | Navega entre canais |
 | `Enter` | Envia mensagem (canal de texto) ou entra na voz (canal de voz) |
 | `M` | Muta/desmuta o microfone |
+| `D` | Ensurdece: para de ouvir todo mundo e fecha seu microfone |
 | `S` | Inicia/para o compartilhamento de tela |
+| `X` | Sai do canal de voz |
+| `espaço` | Fala enquanto segurado — só no modo push-to-talk |
+| `F` | Tela cheia das transmissões |
+| `G` | Alterna grade e foco (com duas ou mais transmissões) |
+| `1`–`9` | Foca a transmissão daquele número |
 
 Atalhos são ignorados enquanto o foco está em um campo de texto.
+
+## Transmissões
+
+O palco tem dois arranjos e uma tela cheia:
+
+| Arranjo | Quando | O que mostra |
+| --- | --- | --- |
+| Grade | Padrão com duas ou mais telas | Todas lado a lado. O número de colunas vem da **quantidade de telas**, não do breakpoint: duas pessoas transmitindo em um monitor largo ficam com metade da janela cada, e não com dois terços e uma coluna vazia |
+| Foco | Ao clicar em uma tela, ou com `G` | Uma grande e a tira de miniaturas numeradas embaixo, como no Discord. `1`–`9` pula direto para uma |
+| Tela cheia | `F` | Usa a API de fullscreen do navegador. Onde ela é recusada — dentro de iframe, ou sob permissions policy — cai para um modo teatro (`fixed inset-0`), porque um botão de expandir que silenciosamente não faz nada é pior que um que expande na página |
+
+Quem estava em foco parar de transmitir devolve você para a grade, e a última
+tela sair fecha a tela cheia — ninguém fica preso em uma tela cheia vazia.
+
+## Bonecos
+
+Cada pessoa é um personagem pixelado de 12x14, desenhado em SVG na mesma paleta
+âmbar (`lib/sprites.ts`). Não há foto: `avatarUrl` continua no DTO por causa do
+contrato da API, mas nada renderiza esse campo.
+
+- **Quem é quem**: o personagem sai de um hash do id do usuário, então é estável
+  sem precisar de armazenamento nenhum. Só a **sua** escolha é uma escolha, no
+  botão `boneco` da status bar.
+- **Boca**: três estados ligados ao `audioLevel` real — fechada abaixo do limiar
+  de fala, aberta, e escancarada acima de 0.38.
+- **Faixa no rodapé**: aparece ao entrar em canal de voz. Todo mundo anda de um
+  lado para o outro em ciclos de duração diferente; **quem fala para de andar** e
+  ganha o nome em cima. Silêncio é movimento, fala é imobilidade — a inversão é
+  o que faz o falante saltar aos olhos numa sala de quarenta.
+- **Desenho**: um sprite vira três `<path>` (um por tom) com runs horizontais
+  fundidos, em vez de ~100 retângulos por pessoa.
+
+## Controles de voz
+
+| Controle | O que faz |
+| --- | --- |
+| Mutar | Fecha só o seu microfone |
+| Ensurdecer | Silencia todo mundo **e** fecha seu microfone. As tracks continuam chegando, então voltar a ouvir é instantâneo |
+| Modo `aberto` / `push-to-talk` | No PTT o microfone fica fechado até você segurar espaço. Perder o foco da janela solta o botão, senão o microfone ficaria aberto numa aba que você nem está olhando |
+| Dispositivos | Escolhe entrada e saída de áudio. A saída só aparece onde `setSinkId` existe (Chrome/Edge); Firefox e Safari usam sempre o padrão do sistema |
+| Volume por participante | Ganho individual, aplicado no `<audio>` de cada feed. Desenhado como `[-] [▮▮▮▮▮░░░░░] [+]` com semântica de slider própria (setas, Home/End, clique na barra) — o `<input type="range"> `nativo era o único controle da tela com polegar arredondado e cor de sistema |
+
+Mudo, ensurdecido e push-to-talk são três motivos independentes para o
+microfone estar fechado. Eles são resolvidos em **um** lugar
+(`isTransmitting`, em `hooks/use-voice-room.ts`) e um único efeito aplica o
+resultado no hardware — nenhum deles escreve no dispositivo por conta própria.
+
+Modo de fala, dispositivos escolhidos e volumes ficam em `localStorage`
+(`lib/prefs.ts`), não na sessão: descrevem o hardware **desta máquina**, então
+sincronizar com a conta daria a resposta errada em um segundo computador.
+
+## Notificações
+
+O botão `som` na status bar liga/desliga o blip e, na primeira vez que é
+ligado, pede permissão de notificação do navegador (o prompt só é aceito dentro
+de um gesto do usuário — o clique serve de gesto).
+
+- **Blip**: dois tons quadrados sintetizados na hora (`lib/notify.ts`), sem
+  arquivo de áudio — combina com a pele e não pode falhar ao carregar.
+- **Mensagem**: toca quando chega em outro canal, ou no canal aberto se a aba
+  estiver escondida.
+- **Entrar/sair da voz**: só toca para a sala em que **você** está. Avisar de
+  toda movimentação da casa seria barulho constante.
+- **Notificação de desktop**: só com a aba escondida.
 
 ## Contratos consumidos da `shussei-api`
 
@@ -156,9 +244,12 @@ Os DTOs vivem em `lib/types.ts` e espelham o contrato do plano.
    o e-mail não está na allowlist.
 3. **Logout.** `lib/auth.ts` aponta para `GET /api/v1/auth/logout`, que ainda
    não está no plano da API.
-4. **Identidade no LiveKit.** Para casar participantes da sala com a presença
+4. **Boneco escolhido.** A sua escolha vive em `localStorage`: o `SessionUser`
+   não tem campo para carregá-la, então os outros continuam vendo o personagem
+   derivado do seu id. Precisa de um campo no DTO para ser compartilhada.
+5. **Identidade no LiveKit.** Para casar participantes da sala com a presença
    do app, o token deve usar `identity = user.id` e `name = user.name`.
-5. **Cookie de sessão cross-origin.** Web em `:3000` e API em `:3001` são
+6. **Cookie de sessão cross-origin.** Web em `:3000` e API em `:3001` são
    origens distintas: o cookie precisa de `SameSite=None; Secure` em produção
    (ou os dois atrás do mesmo host no Caddy) e o CORS precisa de
    `credentials: true`.
@@ -172,12 +263,41 @@ Os DTOs vivem em `lib/types.ts` e espelham o contrato do plano.
   as telas compartilhadas), `components/room-audio.tsx` (sem ele ninguém escuta
   o áudio remoto), `components/ui/*` (primitivos do tema), `lib/mock/*`,
   `hooks/use-directory.ts`, `app/channels/page.tsx`, `Dockerfile`.
+- **O shell mora no layout, não na página.** `app/channels/layout.tsx` renderiza
+  o `AppShell` lendo o canal via `useParams`, e `app/channels/[channelId]/page.tsx`
+  devolve `null`. O App Router **remonta** uma página quando o segmento dinâmico
+  muda, e com o shell lá dentro cada clique em canal derrubava a sala do LiveKit
+  — exatamente o que o dock de voz existe para evitar. Layout persiste entre
+  segmentos irmãos e só re-renderiza.
+- **`avatarUrl` não é renderizado.** O campo continua no `SessionUser` porque é
+  contrato da API, mas as pessoas são desenhadas como personagens pixelados. Ver
+  "Bonecos".
 
 ## Tema
 
 O visual é um terminal CLI/cyberpunk (âmbar sobre preto, monoespaçado). Todas as
 cores, bordas e fontes são tokens em `app/globals.css` (`@theme`) — trocar a
 pele do app é editar esse bloco, não os componentes.
+
+### Efeitos
+
+Calibrados para uso longo: nada pisca forte, nada fica no caminho da leitura.
+Tudo respeita `prefers-reduced-motion` — o CSS neutraliza os keyframes e os
+efeitos em JS consultam `lib/motion-prefs.ts` para **não rodar**, em vez de
+revelar o texto tarde.
+
+| Efeito | Onde | Detalhe |
+| --- | --- | --- |
+| Boot log | `components/boot-sequence.tsx` | É o estado de carregamento, não um splash por cima dele. Roda uma vez por documento (`lib/boot-state.ts`), nunca em remontagem |
+| Power-on do CRT | Shell e login | Linha horizontal que abre na vertical, 620ms |
+| Scanlines + flicker | `body::before` | Cintilação de 2% com período de 9s |
+| Sweep | `components/ui/crt-overlay.tsx` | Banda clara descendo o tubo |
+| Glitch de canal | `<main>` do shell | Rasgo horizontal de 200ms ao trocar de canal |
+| Scramble | Cabeçalho do chat | O nome do canal "decodifica" ao mudar. Só anima na **mudança**: embaralhar no primeiro render parece defeito |
+| Typewriter | Mensagens do chat | Só o que chega ao vivo (< 10s). O buffer recuperado renderiza inteiro — datilografar uma hora de histórico mentiria sobre quando aquilo foi dito |
+| Anel de fala | Avatares | Sombra que cresce com o `audioLevel` real; é medidor, não indicador binário |
+| Estática | `ScreenStage` | Dois gradientes radiais deslocados: sem canvas e sem repaint por frame |
+| Caminhada | `components/sprite-strip.tsx` | Ida e volta completas em **um** ciclo em vez de `alternate`, para que o giro do personagem seja uma segunda animação de mesma duração e não saia de sincronia com a primeira |
 
 ## Sintoma comum: o login com Google aponta para `localhost:3001`
 

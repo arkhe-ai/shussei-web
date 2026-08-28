@@ -4,7 +4,13 @@ import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { EphemeralMessage } from '../lib/types';
+import { Avatar } from './ui/avatar';
 import { KeyHint } from './ui/key-hint';
+import { Scramble } from './ui/scramble';
+import { Typewriter } from './ui/typewriter';
+
+/** A message older than this was recovered from the buffer, not just said. */
+const LIVE_WINDOW_MS = 10_000;
 
 function formatTime(iso: string): string {
   const date = new Date(iso);
@@ -32,6 +38,24 @@ export function ChatPanel({
   const [body, setBody] = useState('');
   const listRef = useRef<HTMLDivElement | null>(null);
 
+  /*
+   * Decided once per message id and then remembered, so a re-render never
+   * restarts a half-typed line. Age is the test rather than "arrived after
+   * mount": the recovered buffer also arrives after mount, and replaying an
+   * hour of it as if it were being typed would misrepresent when it was said.
+   */
+  const typedRef = useRef(new Map<string, boolean>());
+
+  function shouldType(message: EphemeralMessage): boolean {
+    const remembered = typedRef.current.get(message.id);
+    if (remembered !== undefined) return remembered;
+
+    const age = Date.now() - new Date(message.sentAt).getTime();
+    const isLive = Number.isFinite(age) && age >= 0 && age < LIVE_WINDOW_MS;
+    typedRef.current.set(message.id, isLive);
+    return isLive;
+  }
+
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
@@ -48,9 +72,10 @@ export function ChatPanel({
   return (
     <section className="flex min-h-0 flex-1 flex-col border border-line bg-base-850">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-3 py-1.5">
-        <span className="text-[11px] uppercase tracking-[0.22em] text-amber-500 glow">
-          #{channelName ?? channelId}
-        </span>
+        <Scramble
+          text={`#${channelName ?? channelId}`}
+          className="text-[11px] uppercase tracking-[0.22em] text-amber-500 glow"
+        />
         <span className="text-[11px] text-content-muted">
           buffer efêmero · últimas 100 mensagens · ttl 1h
         </span>
@@ -88,16 +113,17 @@ export function ChatPanel({
                 </time>
                 <span
                   className={clsx(
-                    'text-[13px]',
+                    'flex items-center gap-1.5 text-[13px]',
                     message.author.id === currentUserId
                       ? 'text-amber-300 glow'
                       : 'text-content-secondary',
                   )}
                 >
+                  <Avatar seed={message.author.id} name={message.author.name} size="sm" />
                   &lt;{message.author.name}&gt;
                 </span>
                 <p className="whitespace-pre-wrap break-words text-[13px] text-content-primary">
-                  {message.body}
+                  <Typewriter text={message.body} animate={shouldType(message)} />
                 </p>
               </motion.li>
             ))}

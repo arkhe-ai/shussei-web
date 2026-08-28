@@ -1,10 +1,8 @@
-import { AppShell } from '../../../components/app-shell';
-
-export default async function ChannelPage({
-  params,
-}: {
-  params: Promise<{ channelId: string }>;
-}) {
-  const { channelId } = await params;
-  return <AppShell initialChannelId={channelId} />;
+/**
+ * The channel UI is rendered by `app/channels/layout.tsx`, which reads the same
+ * id through `useParams` and survives navigation between channels. This segment
+ * exists only so the route resolves.
+ */
+export default function ChannelPage() {
+  return null;
 }

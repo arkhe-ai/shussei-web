@@ -3,11 +3,8 @@
 import clsx from 'clsx';
 import type { ReactNode } from 'react';
 import type { ChannelDto, SessionUser } from '../lib/types';
+import { Avatar } from './ui/avatar';
 import { Wordmark } from './ui/wordmark';
-
-function displayName(userId: string, usersById: Record<string, SessionUser>): string {
-  return usersById[userId]?.name ?? userId;
-}
 
 export function ChannelSidebar({
   channels,
@@ -15,6 +12,7 @@ export function ChannelSidebar({
   connectedVoiceChannelId = null,
   channelOccupancy,
   usersById,
+  unreadByChannel = {},
   isLoading = false,
   onSelect,
 }: {
@@ -23,6 +21,7 @@ export function ChannelSidebar({
   connectedVoiceChannelId?: string | null;
   channelOccupancy: Record<string, string[]>;
   usersById: Record<string, SessionUser>;
+  unreadByChannel?: Record<string, number>;
   isLoading?: boolean;
   onSelect: (channel: ChannelDto) => void;
 }) {
@@ -52,6 +51,7 @@ export function ChannelSidebar({
             sigil="#"
             label={channel.name}
             isActive={channel.id === activeChannelId}
+            unread={unreadByChannel[channel.id] ?? 0}
             onSelect={() => onSelect(channel)}
           />
         ))}
@@ -77,10 +77,14 @@ export function ChannelSidebar({
                 onSelect={() => onSelect(channel)}
               />
               {occupants.length > 0 ? (
-                <ul className="mb-1 ml-6 space-y-0.5">
+                <ul className="mb-1 ml-5 space-y-0.5">
                   {occupants.map((userId) => (
-                    <li key={userId} className="truncate text-[11px] text-content-muted">
-                      <span className="text-amber-700">-</span> {displayName(userId, usersById)}
+                    <li
+                      key={userId}
+                      className="flex items-center gap-1.5 truncate text-[11px] text-content-muted"
+                    >
+                      <Avatar seed={userId} name={usersById[userId]?.name ?? userId} size="sm" />
+                      <span className="truncate">{usersById[userId]?.name ?? userId}</span>
                     </li>
                   ))}
                 </ul>
@@ -107,31 +111,43 @@ function ChannelItem({
   label,
   isActive,
   badge,
+  unread = 0,
   onSelect,
 }: {
   sigil: string;
   label: string;
   isActive: boolean;
   badge?: string;
+  unread?: number;
   onSelect: () => void;
 }) {
+  const hasUnread = unread > 0 && !isActive;
+
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-current={isActive ? 'page' : undefined}
+      // Screen readers get the count spelled out; sighted users get the badge.
+      aria-label={hasUnread ? `${label}, ${unread} nao lidas` : undefined}
       className={clsx(
         'focus-ring flex w-full items-center gap-2 px-2 py-1 text-left text-[13px] transition-colors',
         isActive
           ? 'bg-amber-500 text-content-inverse'
-          : 'text-content-secondary hover:bg-base-800 hover:text-amber-300',
+          : hasUnread
+            ? 'text-amber-200 hover:bg-base-800'
+            : 'text-content-secondary hover:bg-base-800 hover:text-amber-300',
       )}
     >
       <span className={clsx('shrink-0 text-[11px]', isActive ? 'opacity-70' : 'text-amber-700')}>
         {sigil}
       </span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      {badge ? (
+      <span className={clsx('min-w-0 flex-1 truncate', hasUnread && 'glow')}>{label}</span>
+      {hasUnread ? (
+        <span className="shrink-0 border border-amber-600 px-1 text-[10px] tabular-nums text-amber-300 glow">
+          {unread > 99 ? '99+' : unread}
+        </span>
+      ) : badge ? (
         <span
           className={clsx(
             'shrink-0 text-[10px] uppercase tracking-wider',

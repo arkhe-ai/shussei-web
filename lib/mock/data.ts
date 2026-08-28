@@ -1,5 +1,10 @@
 import type { ChannelDto, EphemeralMessage, SessionUser } from '../types';
 
+/*
+ * `avatarUrl` stays null across the board: people are drawn as pixel characters
+ * derived from their user id (`lib/sprites.ts`), so the field is carried for
+ * the API contract but never rendered. See README, "Bonecos".
+ */
 export const mockSessionUser: SessionUser = {
   id: 'u-you',
   email: 'voce@shussei.dev',
@@ -90,3 +95,17 @@ export const mockMessages: Record<string, EphemeralMessage[]> = {
     },
   ],
 };
+
+/** Ambient chatter for mock mode; see `isMockTrafficEnabled`. */
+export const mockChatter: string[] = [
+  'subi a branch, da uma olhada quando puder',
+  'o coturn caiu de novo? aqui deu timeout',
+  'reuniao em 10, alguem entra no sala-principal?',
+  'esse ttl de 1h ta curto demais pro meu gosto',
+  'consegui reproduzir o bug do token expirando',
+  'to compartilhando a tela no jogos',
+  'alguem mexeu no compose ontem?',
+  'boa, funcionou de primeira aqui',
+  'vou almocar, volto em 40',
+  'o livekit ta reclamando de codec, ja viram isso?',
+];
