@@ -2,7 +2,7 @@
 
 import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isFirstBoot, markBooted } from '../lib/boot-state';
 import { isTypingTarget } from '../lib/keyboard';
 import { useAudioDevices } from '../hooks/use-audio-devices';
@@ -74,6 +74,28 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
 
   const connectedChannel =
     channels.find((channel) => channel.id === voice.connectedChannelId) ?? null;
+
+  /*
+   * LiveKit cannot be wrong about the room you are standing in, so the sidebar
+   * uses it for that one channel and the presence snapshot for every other.
+   * Without this, a backend that never reports voice occupancy leaves the
+   * sidebar empty even for the call you are in, and a quiet room looks exactly
+   * like a broken one.
+   *
+   * Deliberately not fed back into `useVoiceRoom`: its fallback participants
+   * come from the raw snapshot, and mixing the two would loop.
+   */
+  const sidebarOccupancy = useMemo(() => {
+    const connected = voice.connectedChannelId;
+    if (!connected) return channelOccupancy;
+
+    const merged = new Set([
+      ...(channelOccupancy[connected] ?? []),
+      ...voice.participants.map((participant) => participant.id),
+    ]);
+
+    return { ...channelOccupancy, [connected]: [...merged] };
+  }, [channelOccupancy, voice.connectedChannelId, voice.participants]);
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -212,7 +234,7 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
           channels={channels}
           activeChannelId={activeChannel?.id ?? null}
           connectedVoiceChannelId={voice.connectedChannelId}
-          channelOccupancy={channelOccupancy}
+          channelOccupancy={sidebarOccupancy}
           usersById={usersById}
           unreadByChannel={unreadByChannel}
           isLoading={areChannelsLoading}
@@ -291,7 +313,7 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
             <PresenceList
               usersById={usersById}
               onlineUserIds={onlineUserIds}
-              channelOccupancy={channelOccupancy}
+              channelOccupancy={sidebarOccupancy}
               channels={channels}
               currentUserId={user.id}
               isDirectoryAvailable={isDirectoryAvailable}

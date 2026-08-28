@@ -280,7 +280,15 @@ deste README descreve como ficaram.
    derivado do seu id. Precisa de um campo no DTO para ser compartilhada.
 5. **Identidade no LiveKit.** Para casar participantes da sala com a presença
    do app, o token deve usar `identity = user.id` e `name = user.name`.
-6. **Cookie de sessão cross-origin.** Web em `:3000` e API em `:3001` são
+6. **Ocupação dos canais de voz.** Quem está em cada canal vem **só** do socket:
+   `channelOccupancy` no `presence.snapshot` e o `channelId` no
+   `presence.changed` que o servidor devolve depois de um `voice.join` /
+   `voice.leave`. O cliente não tem outra fonte para canais em que você não
+   está — se a sidebar aparece vazia em produção mas cheia no mock, o servidor
+   não está mandando esses campos. Para o canal em que você **está**, o cliente
+   agora usa a sala do LiveKit e não depende disso (ver `sidebarOccupancy` em
+   `components/app-shell.tsx`).
+7. **Cookie de sessão cross-origin.** Web em `:3000` e API em `:3001` são
    origens distintas: o cookie precisa de `SameSite=None; Secure` em produção
    (ou os dois atrás do mesmo host no Caddy) e o CORS precisa de
    `credentials: true`.
