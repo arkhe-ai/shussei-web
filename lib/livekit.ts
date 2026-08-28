@@ -225,6 +225,29 @@ export function readAudioFeeds(room: Room): MediaFeed[] {
   return feeds;
 }
 
+/**
+ * Whether a feed list actually describes something different.
+ *
+ * `readScreenFeeds`/`readAudioFeeds` mint fresh objects on every call, and they
+ * are called on every room event. Without this, each sync hands React a new
+ * array of new objects, every <video> re-attaches its track, and the picture
+ * blinks — that is the flicker, and it is why the same guard already exists for
+ * the participant list.
+ */
+export function feedsChanged(previous: MediaFeed[], next: MediaFeed[]): boolean {
+  if (previous.length !== next.length) return true;
+
+  return next.some((feed, index) => {
+    const before = previous[index];
+    return (
+      before.id !== feed.id ||
+      before.participantId !== feed.participantId ||
+      before.participantName !== feed.participantName ||
+      before.isLocal !== feed.isLocal
+    );
+  });
+}
+
 /** Resumes playback after browser autoplay policies block it. */
 export async function resumeRoomAudio(room: Room): Promise<void> {
   if (room.canPlaybackAudio) return;

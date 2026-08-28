@@ -49,13 +49,19 @@ function AudioFeed({
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Same reason as the video elements: re-attaching a live audio track because
+  // a new wrapper object arrived produces an audible gap.
+  const feedRef = useRef(feed);
+  feedRef.current = feed;
+
   useEffect(() => {
     const element = audioRef.current;
     if (!element) return;
 
-    feed.attach(element);
-    return () => feed.detach(element);
-  }, [feed]);
+    const attached = feedRef.current;
+    attached.attach(element);
+    return () => attached.detach(element);
+  }, [feed.id]);
 
   // Deafen mutes rather than unsubscribes: the track keeps flowing, so
   // undeafening is instant instead of renegotiating with the SFU.

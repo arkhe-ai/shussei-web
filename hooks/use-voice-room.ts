@@ -10,6 +10,7 @@ import {
   ROOM_EVENTS,
   connectToVoiceRoom,
   disconnectFromVoiceRoom,
+  feedsChanged,
   participantsChanged,
   readAudioFeeds,
   readParticipants,
@@ -213,8 +214,14 @@ export function useVoiceRoom(
         return participantsChanged(current, next) ? next : current;
       });
       setIsSharingScreen(room.localParticipant.isScreenShareEnabled);
-      setScreenFeeds(readScreenFeeds(room));
-      setAudioFeeds(readAudioFeeds(room));
+      setScreenFeeds((current) => {
+        const next = readScreenFeeds(room);
+        return feedsChanged(current, next) ? next : current;
+      });
+      setAudioFeeds((current) => {
+        const next = readAudioFeeds(room);
+        return feedsChanged(current, next) ? next : current;
+      });
     };
 
     const handleDisconnected = () => {

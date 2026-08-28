@@ -341,11 +341,19 @@ function useVideoFeed(feed: MediaFeed) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [hasSignal, setHasSignal] = useState(true);
 
+  // Read inside the effect so a new object describing the same track does not
+  // re-run it. Belt and braces with `feedsChanged` upstream: this element must
+  // not blink even if some future caller hands it fresh objects again.
+  const feedRef = useRef(feed);
+  feedRef.current = feed;
+
   useEffect(() => {
     const element = videoRef.current;
     if (!element) return;
 
-    feed.attach(element);
+    // Whatever attached has to be what detaches.
+    const attached = feedRef.current;
+    attached.attach(element);
     setHasSignal(true);
 
     let lastTime = -1;
@@ -367,9 +375,10 @@ function useVideoFeed(feed: MediaFeed) {
 
     return () => {
       window.clearInterval(id);
-      feed.detach(element);
+      attached.detach(element);
     };
-  }, [feed]);
+    // Keyed on the track, not on the object wrapping it.
+  }, [feed.id]);
 
   return { videoRef, hasSignal };
 }
