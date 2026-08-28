@@ -1,4 +1,8 @@
-export type SpriteId = 'curto' | 'chapeu' | 'moicano' | 'longo' | 'careca' | 'gorro';
+export type SpriteId =
+  | 'aventureiro' | 'aventureira' | 'dev' | 'mago' | 'cavaleiro' | 'arqueiro'
+  | 'gato' | 'cachorro' | 'raposa' | 'sapo' | 'robo' | 'pato'
+  | 'alienigena' | 'dinossauro' | 'feiticeiro' | 'panda' | 'panda-vermelho' | 'androide'
+  | 'paladino' | 'bruxa' | 'cacador' | 'clerigo' | 'diabinho' | 'mago-do-gelo';
 export type UserSprites = Record<string, SpriteId | null>;
 
 export type SessionUser = {
