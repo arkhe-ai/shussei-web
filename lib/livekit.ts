@@ -3,6 +3,7 @@ import {
   type LocalTrack,
   Room,
   RoomEvent,
+  type ScreenShareCaptureOptions,
   Track,
   createLocalScreenTracks,
 } from 'livekit-client';
@@ -152,8 +153,52 @@ export type ScreenShareResult = {
  * opens once, the picture always goes out, and a failed audio publish is
  * reported instead of being fatal.
  */
+/** The user closing the picker is not a failure to report or to retry. */
+function isUserCancellation(cause: unknown): boolean {
+  const name = cause instanceof Error ? cause.name : '';
+  return name === 'NotAllowedError' || name === 'AbortError';
+}
+
+/**
+ * Capture ladder, most capable first.
+ *
+ * `systemAudio` is a Chrome-only option, and a browser that does not know it
+ * rejects the whole `getDisplayMedia` call — before the picker even opens, so
+ * stepping down costs the user nothing. That is the difference between two
+ * machines on the same server where one can share with audio and the other
+ * cannot get a share started at all.
+ */
+const CAPTURE_LADDER: ScreenShareCaptureOptions[] = [
+  { audio: true, systemAudio: 'include' },
+  { audio: true },
+  { audio: false },
+];
+
+async function captureScreen(): Promise<{ tracks: LocalTrack[]; audioError?: string }> {
+  let firstFailure: unknown;
+
+  for (const options of CAPTURE_LADDER) {
+    try {
+      const tracks = await createLocalScreenTracks(options);
+      return {
+        tracks,
+        // Only worth mentioning if we actually gave something up.
+        audioError:
+          firstFailure && options.audio === false ? describeCause(firstFailure) : undefined,
+      };
+    } catch (cause) {
+      // Cancelling the picker must not re-prompt down the ladder.
+      if (isUserCancellation(cause)) throw cause;
+      console.error('[shussei] captura de tela falhou com', options, cause);
+      firstFailure ??= cause;
+    }
+  }
+
+  throw firstFailure ?? new Error('screen_share_capture_failed');
+}
+
 export async function startScreenShare(room: Room): Promise<ScreenShareResult> {
-  const tracks = await createLocalScreenTracks({ audio: true, systemAudio: 'include' });
+  const { tracks, audioError: captureAudioError } = await captureScreen();
 
   const video = tracks.find((track) => track.kind === Track.Kind.Video);
   const audio = tracks.find((track) => track.kind === Track.Kind.Audio);
@@ -171,7 +216,7 @@ export async function startScreenShare(room: Room): Promise<ScreenShareResult> {
   });
 
   if (!audio) {
-    return { mode: 'screen-only' };
+    return { mode: 'screen-only', audioError: captureAudioError };
   }
 
   try {

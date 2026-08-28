@@ -44,6 +44,24 @@ describe('ScreenShareButton', () => {
     expect(notice).toHaveTextContent(/failed to publish/i);
   });
 
+  it('shows the real error when the share fails outright', async () => {
+    // This is the path that actually fired in the field, and it used to render
+    // a bare "could not start" — nothing to diagnose with.
+    const start = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error("Failed to execute 'getDisplayMedia'"), { name: 'TypeError' }),
+      );
+
+    render(<ScreenShareButton isSharing={false} onStart={start} onStop={vi.fn()} />);
+    clickShare();
+
+    const notice = await screen.findByRole('status');
+    expect(notice).toHaveTextContent(/não foi possível iniciar/i);
+    expect(notice).toHaveTextContent(/TypeError/);
+    expect(notice).toHaveTextContent(/getDisplayMedia/);
+  });
+
   it('ignores a dismissed screen picker', async () => {
     const start = vi
       .fn()

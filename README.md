@@ -142,9 +142,24 @@ inteiro junto e a sala renegocia — foi o sintoma relatado de "cai a conexão d
 LiveKit e reabre" ao compartilhar com áudio, enquanto sem áudio funcionava.
 
 Agora o seletor de tela abre **uma vez**, o vídeo é publicado sempre, e uma falha
-ao publicar o áudio é isolada: a imagem continua no ar e a mensagem mostra o erro
-cru do servidor, em vez de um texto genérico. Como as tracks passam a ser
-publicadas à mão, `stopScreenShare` também despublica as duas à mão.
+ao publicar o áudio é isolada: a imagem continua no ar. Como as tracks passam a
+ser publicadas à mão, `stopScreenShare` também despublica as duas à mão.
+
+A captura desce uma escada, da mais capaz para a mais simples:
+
+| Tentativa | Opções | Por quê |
+| --- | --- | --- |
+| 1 | `{ audio: true, systemAudio: 'include' }` | O que dá áudio do sistema no Chrome |
+| 2 | `{ audio: true }` | `systemAudio` é opção **só do Chrome**, e um navegador que não a conhece rejeita a chamada inteira do `getDisplayMedia` — antes do seletor abrir, então descer um degrau não custa nada ao usuário |
+| 3 | `{ audio: false }` | Só a imagem, quando áudio é impossível naquela máquina |
+
+Fechar o seletor (`NotAllowedError` / `AbortError`) **interrompe a escada**: seria
+péssimo reabrir o seletor logo depois de você tê-lo fechado.
+
+Todo erro vai para o `console.error` e aparece entre parênteses no aviso da UI,
+inclusive na falha total. Uma mensagem genérica de "não foi possível iniciar"
+não deixa nada para diagnosticar, e é justamente esse o caminho que dispara
+quando um compartilhamento falha de vez.
 
 ## Bonecos
 

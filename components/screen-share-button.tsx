@@ -5,7 +5,7 @@ import type { ScreenShareResult } from '../lib/livekit';
 import { CommandButton } from './ui/command-button';
 
 const AUDIO_PUBLISH_NOTICE =
-  'Sua tela está sendo transmitida, mas o servidor recusou o áudio do sistema. A imagem continua no ar.';
+  'Sua tela está sendo transmitida, mas o áudio do sistema não foi junto. A imagem continua no ar.';
 
 const FALLBACK_NOTICE =
   'Compartilhando apenas a imagem: este navegador não entregou o áudio do sistema. Chrome/Edge no desktop, compartilhando uma aba ou a tela inteira, costumam permitir.';
@@ -28,15 +28,21 @@ export function ScreenShareButton({
       const { mode, audioError } = await onStart();
       if (mode !== 'screen-only') return;
 
-      // The browser handed over an audio track and publishing it failed: the
-      // picture is up regardless, and the raw error is worth showing so it can
-      // be reported rather than guessed at.
+      // The picture is up either way; `audioError` means audio was actually
+      // attempted and lost, which is a different story from a browser that
+      // never offered it.
       setNotice(audioError ? `${AUDIO_PUBLISH_NOTICE} (${audioError})` : FALLBACK_NOTICE);
     } catch (cause) {
       const name = cause instanceof Error ? cause.name : '';
       // The user dismissing the picker is not an error worth reporting.
       if (name === 'NotAllowedError' || name === 'AbortError') return;
-      setNotice('Não foi possível iniciar o compartilhamento de tela.');
+
+      // Never swallow this one: a bare "could not start" leaves nothing to
+      // diagnose with, and this is the path that actually fires when a share
+      // fails outright.
+      console.error('[shussei] compartilhamento de tela falhou', cause);
+      const detail = cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause);
+      setNotice(`Não foi possível iniciar o compartilhamento de tela. (${detail})`);
     }
   }
 
