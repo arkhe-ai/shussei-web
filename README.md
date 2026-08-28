@@ -163,21 +163,50 @@ quando um compartilhamento falha de vez.
 
 ## Bonecos
 
-Cada pessoa é um personagem pixelado de 12x14, desenhado em SVG na mesma paleta
-âmbar (`lib/sprites.ts`). Não há foto: `avatarUrl` continua no DTO por causa do
-contrato da API, mas nada renderiza esse campo.
+Cada pessoa é um dos **24 personagens** de `public/sprites/characters.png`. Não há
+foto: `avatarUrl` continua no DTO por causa do contrato da API, mas nada
+renderiza esse campo.
 
 - **Quem é quem**: o personagem sai de um hash do id do usuário, então é estável
   sem precisar de armazenamento nenhum. Só a **sua** escolha é uma escolha, no
-  botão `boneco` da status bar.
-- **Boca**: três estados ligados ao `audioLevel` real — fechada abaixo do limiar
-  de fala, aberta, e escancarada acima de 0.38.
+  botão `boneco` da status bar, que abre a grade 6x4 com todos.
+- **Pulo**: a altura acompanha o `audioLevel` real, com achatamento na
+  aterrissagem. Continua sendo medidor e não indicador binário — é o mesmo
+  número que move as barras de nível.
 - **Faixa no rodapé**: aparece ao entrar em canal de voz. Todo mundo anda de um
   lado para o outro em ciclos de duração diferente; **quem fala para de andar** e
   ganha o nome em cima. Silêncio é movimento, fala é imobilidade — a inversão é
   o que faz o falante saltar aos olhos numa sala de quarenta.
-- **Desenho**: um sprite vira três `<path>` (um por tom) com runs horizontais
-  fundidos, em vez de ~100 retângulos por pessoa.
+- **Desenho**: uma folha só, fatiada por `background-position` em porcentagem.
+  Uma requisição para os 24, cacheada uma vez, e trocar de personagem é uma
+  mudança de estilo em vez de uma imagem nova. A resolução da folha é detalhe do
+  script de build; o código só precisa concordar sobre a grade ser 6x4.
+
+### Regerando a folha
+
+A arte fica em `assets/characters-source.png` (fora de `public/`, não é servida).
+O script de build corta, tira o fundo e reduz:
+
+```bash
+node scripts/build-sprites.mjs
+```
+
+Duas coisas que ele resolve e que não são óbvias:
+
+1. **Não existe grade de pixels para encaixar.** A arte é renderizada com
+   anti-aliasing e ruído — medindo a periodicidade do gradiente, nada trava. Por
+   isso o corte é por conteúdo, não por bloco.
+2. **O fundo sai por flood fill a partir das bordas, não por cor.** Uma chave de
+   cor abriria buracos no branco do panda, na túnica do clérigo e no pato — o
+   branco deles é fechado por contorno escuro.
+
+Todos os 24 são recortados na **mesma** caixa (a união dos conteúdos), então
+mantêm o tamanho relativo entre si e pisam na mesma linha de chão. Saída: 288x192,
+27KB.
+
+> A folha é colorida e quebra de propósito a regra monocromática do resto da
+> pele. Se um dia isso incomodar, um filtro de tint âmbar sobre `Sprite`
+> devolve a coerência sem mexer na arte.
 
 ## Controles de voz
 
@@ -337,6 +366,7 @@ revelar o texto tarde.
 | Anel de fala | Avatares | Sombra que cresce com o `audioLevel` real; é medidor, não indicador binário |
 | Estática | `ScreenStage` | Dois gradientes radiais deslocados: sem canvas e sem repaint por frame |
 | Caminhada | `components/sprite-strip.tsx` | Ida e volta completas em **um** ciclo em vez de `alternate`, para que o giro do personagem seja uma segunda animação de mesma duração e não saia de sincronia com a primeira |
+| Pulo | `sprite-hop` | Altura vinda do `audioLevel`. Continua rodando enquanto a caminhada está pausada — parar de andar existe justamente para o pulo aparecer |
 
 ## Sintoma comum: o login com Google aponta para `localhost:3001`
 

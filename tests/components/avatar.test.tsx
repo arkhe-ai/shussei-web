@@ -1,10 +1,51 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { Avatar } from '../../components/ui/avatar';
-import { SPRITE_PRESETS, mouthForLevel, presetForSeed, spritePaths } from '../../lib/sprites';
+import {
+  SHEET_COLUMNS,
+  SHEET_ROWS,
+  SPRITE_PRESETS,
+  hopHeightFor,
+  presetForSeed,
+  presetIndex,
+  spriteBackgroundPosition,
+} from '../../lib/sprites';
+
+describe('the sheet', () => {
+  it('has a character for every cell of the grid', () => {
+    expect(SPRITE_PRESETS).toHaveLength(SHEET_COLUMNS * SHEET_ROWS);
+  });
+
+  it('gives every character a distinct id', () => {
+    expect(new Set(SPRITE_PRESETS.map((preset) => preset.id)).size).toBe(SPRITE_PRESETS.length);
+  });
+
+  it('parks the sheet on a different cell for each character', () => {
+    const positions = SPRITE_PRESETS.map((_, index) => spriteBackgroundPosition(index));
+
+    expect(new Set(positions).size).toBe(SPRITE_PRESETS.length);
+    // First cell is the origin, last one is the far corner.
+    expect(positions[0]).toBe('0% 0%');
+    expect(positions.at(-1)).toBe('100% 100%');
+  });
+
+  it('never runs off the sheet, whatever index it is handed', () => {
+    for (const index of [-3, 0, SPRITE_PRESETS.length, SPRITE_PRESETS.length * 7 + 2]) {
+      const [x, y] = spriteBackgroundPosition(index).split(' ').map(Number.parseFloat);
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(100);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it('falls back to the first character for an id it does not know', () => {
+    expect(presetIndex('nao-existe')).toBe(0);
+  });
+});
 
 describe('presetForSeed', () => {
-  it('always lands on a real preset', () => {
+  it('always lands on a real character', () => {
     for (const seed of ['u-ana', 'u-caio', '', 'ç', 'u-'.repeat(40)]) {
       expect(SPRITE_PRESETS.some((preset) => preset.id === presetForSeed(seed))).toBe(true);
     }
@@ -17,73 +58,45 @@ describe('presetForSeed', () => {
   });
 });
 
-describe('mouthForLevel', () => {
-  it('keeps the mouth shut below the speaking threshold', () => {
-    expect(mouthForLevel(0, false)).toBe('closed');
-    expect(mouthForLevel(0.1, false)).toBe('closed');
+describe('hopHeightFor', () => {
+  it('keeps a quiet character on the ground', () => {
+    expect(hopHeightFor(0, false)).toBe(0);
+    expect(hopHeightFor(0.1, false)).toBe(0);
   });
 
-  it('opens with loudness', () => {
-    expect(mouthForLevel(0.2, false)).toBe('open');
-    expect(mouthForLevel(0.9, false)).toBe('wide');
+  it('jumps higher the louder it gets', () => {
+    // Drawn art cannot open a mouth without a second frame per character, so
+    // the jump carries the level instead — a meter, not a badge.
+    expect(hopHeightFor(0.3, false)).toBeGreaterThan(0);
+    expect(hopHeightFor(0.9, false)).toBeGreaterThan(hopHeightFor(0.3, false));
   });
 
-  it('never moves a muted mouth, whatever the last level was', () => {
-    expect(mouthForLevel(0.9, true)).toBe('closed');
-  });
-});
-
-describe('spritePaths', () => {
-  it('draws every shade', () => {
-    const paths = spritePaths('curto', 'open', 'together');
-
-    expect(paths['1'].length).toBeGreaterThan(0);
-    expect(paths['2'].length).toBeGreaterThan(0);
-    expect(paths['3'].length).toBeGreaterThan(0);
-  });
-
-  it('merges horizontal runs instead of emitting a box per pixel', () => {
-    // A 12x14 grid drawn one box per pixel puts ~100 nodes per person on
-    // screen, and the voice strip can hold forty of them.
-    const paths = spritePaths('curto', 'closed', 'together');
-
-    for (const shade of ['1', '2', '3'] as const) {
-      const boxes = (paths[shade].match(/M/g) ?? []).length;
-      const pixels = [...paths[shade].matchAll(/h([0-9]+)v1/g)].reduce(
-        (total, match) => total + Number(match[1]),
-        0,
-      );
-
-      expect(pixels).toBeGreaterThan(0);
-      expect(boxes).toBeLessThan(pixels);
-    }
-  });
-
-  it('returns the identical object for a repeated frame', () => {
-    expect(spritePaths('curto', 'open', 'apart')).toBe(spritePaths('curto', 'open', 'apart'));
+  it('never moves a muted character, whatever the last level was', () => {
+    expect(hopHeightFor(0.9, true)).toBe(0);
   });
 });
 
 describe('Avatar', () => {
-  it('renders a sprite', () => {
+  it('renders the character from the shared sheet', () => {
     const { container } = render(<Avatar seed="u-ana" name="ana" />);
+    const sprite = container.querySelector('[style*="background-image"]');
 
-    expect(container.querySelector('svg')).toBeInTheDocument();
-    expect(container.querySelectorAll('path').length).toBe(3);
+    expect(sprite?.getAttribute('style')).toContain('/sprites/characters.png');
+    expect(sprite?.getAttribute('style')).toContain('background-position');
   });
 
-  it('rings only above the noise threshold', () => {
+  it('jumps only above the speaking threshold', () => {
     const { container, rerender } = render(<Avatar seed="u-ana" name="ana" level={0.02} />);
-    expect(container.firstElementChild?.getAttribute('style')).toBeNull();
+    expect(container.innerHTML).not.toContain('sprite-hop');
 
     rerender(<Avatar seed="u-ana" name="ana" level={0.7} />);
-    expect(container.firstElementChild?.getAttribute('style')).toContain('box-shadow');
+    expect(container.innerHTML).toContain('sprite-hop');
   });
 
-  it('never rings a muted participant, whatever the last level was', () => {
+  it('never jumps a muted participant, whatever the last level was', () => {
     const { container } = render(<Avatar seed="u-ana" name="ana" level={0.9} isMuted />);
 
-    expect(container.firstElementChild?.getAttribute('style')).toBeNull();
+    expect(container.innerHTML).not.toContain('sprite-hop');
   });
 
   it('keeps the name reachable without rendering it', () => {

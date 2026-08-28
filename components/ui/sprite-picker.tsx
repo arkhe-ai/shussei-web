@@ -47,20 +47,22 @@ export function SpritePicker() {
         onClick={() => setIsOpen((open) => !open)}
         className="focus-ring flex items-center gap-1 text-[11px] text-content-muted transition-colors hover:text-amber-300"
       >
-        <span className="block h-[16px] w-[13px]">
+        <span className="block h-[18px] w-[18px]">
           <Sprite presetId={current} />
         </span>
         boneco
       </button>
 
       {isOpen ? (
-        <div className="absolute bottom-full right-0 z-40 mb-1 border border-line-bright bg-base-950 p-1.5">
-          <ul className="flex gap-1">
+        <div className="absolute bottom-full right-0 z-40 mb-1 w-max border border-line-bright bg-base-950 p-1.5">
+          {/* Same 6x4 as the sheet, so the picker reads like the art it came from. */}
+          <ul className="grid grid-cols-6 gap-1">
             {SPRITE_PRESETS.map((preset) => (
               <li key={preset.id}>
                 <button
                   type="button"
                   aria-label={preset.label}
+                  title={preset.label}
                   aria-pressed={preset.id === current}
                   onClick={() => {
                     setOwnPresetId(preset.id);
@@ -73,8 +75,8 @@ export function SpritePicker() {
                       : 'border-transparent hover:border-line',
                   )}
                 >
-                  <span className="block h-[30px] w-[24px]">
-                    <Sprite presetId={preset.id} crop="full" mouth="open" />
+                  <span className="block h-[34px] w-[34px]">
+                    <Sprite presetId={preset.id} />
                   </span>
                 </button>
               </li>

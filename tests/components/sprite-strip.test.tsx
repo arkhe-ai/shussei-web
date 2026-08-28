@@ -34,7 +34,11 @@ describe('SpriteStrip', () => {
   it('draws one character per person in the room', () => {
     const { container } = render(<SpriteStrip participants={room} channelName="sala" />);
 
-    expect(container.querySelectorAll('svg')).toHaveLength(room.length);
+    const drawn = [...container.querySelectorAll('span[style]')].filter((element) =>
+      (element.getAttribute('style') ?? '').includes('characters.png'),
+    );
+
+    expect(drawn).toHaveLength(room.length);
     expect(screen.getByText(/sala/)).toBeInTheDocument();
   });
 
@@ -101,8 +105,18 @@ describe('SpriteStrip anchoring', () => {
 
     expect(flipped).toHaveLength(room.length);
     for (const element of flipped) {
-      expect(element.className).toContain('w-[22px]');
+      // Its parent is the character-sized anchor, so the mirror happens in place.
+      expect(element.parentElement?.getAttribute('style')).toContain('width: 30px');
     }
+  });
+
+  it('keeps jumping while halted', () => {
+    // Stopping the walk must not stop the jump — the jump is why it stopped.
+    stubReducedMotion(false);
+    const { container } = render(<SpriteStrip participants={room} />);
+
+    const halted = container.querySelector('.sprite-halted');
+    expect(halted?.innerHTML).toContain('sprite-hop');
   });
 
   it('keeps the name out of the mirrored box', () => {
@@ -128,7 +142,7 @@ describe('SpriteStrip anchoring', () => {
     // `left-1/2 -translate-x-1/2` is only correct if the box it centres in is
     // the character, so the anchor has to carry the sprite's width.
     expect(label.className).toContain('left-1/2');
-    expect(anchor?.className).toContain('w-[22px]');
+    expect(anchor?.getAttribute('style')).toContain('width: 30px');
     expect(container.contains(anchor)).toBe(true);
   });
 });

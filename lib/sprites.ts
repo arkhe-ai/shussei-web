@@ -1,125 +1,71 @@
 /**
- * Pixel characters, in the same amber phosphor as everything else.
+ * The 24 characters, sliced out of one sheet.
  *
- * A sprite is a 12x14 grid of shade codes, authored by hand:
- *   `.` transparent   `1` outline/dark   `2` base   `3` highlight
+ * The art is authored elsewhere and processed by `scripts/build-sprites.mjs`
+ * into `public/sprites/characters.png` — a 6x4 grid of square cells sharing one
+ * coordinate system, so every character keeps its relative size and stands on
+ * the same ground line.
  *
- * Mouth and feet are patched in rather than drawn per frame, so a preset is one
- * matrix instead of four, and adding a character means adding two rows of hair.
+ * Slicing is done in percentages rather than pixels: the sheet's resolution is
+ * a detail of the build script, and the grid is the only thing this file needs
+ * to agree with it about.
  */
-export const SPRITE_WIDTH = 12;
-export const SPRITE_HEIGHT = 14;
+export const SPRITE_SHEET = '/sprites/characters.png';
+export const SHEET_COLUMNS = 6;
+export const SHEET_ROWS = 4;
 
-/** Rows 0..8: head and shoulders, for the small avatars used inline. */
-export const BUST_HEIGHT = 9;
-
-export type Shade = '1' | '2' | '3';
-export type MouthState = 'closed' | 'open' | 'wide';
-
-type Preset = {
+export type SpritePreset = {
   id: string;
   label: string;
-  /** Rows 0 and 1. */
-  hair: [string, string];
-  /** Fill used for the torso block. */
-  torso: Shade;
 };
 
-export const SPRITE_PRESETS: Preset[] = [
-  { id: 'curto', label: 'curto', hair: ['...111111...', '..11111111..'], torso: '3' },
-  { id: 'chapeu', label: 'chapéu', hair: ['.1111111111.', '..11111111..'], torso: '2' },
-  { id: 'moicano', label: 'moicano', hair: ['.....11.....', '..11111111..'], torso: '3' },
-  { id: 'longo', label: 'longo', hair: ['...111111...', '.1111111111.'], torso: '2' },
-  { id: 'careca', label: 'careca', hair: ['............', '...122221...'], torso: '3' },
-  { id: 'gorro', label: 'gorro', hair: ['..11111111..', '..11111111..'], torso: '2' },
+/** Row-major, matching the sheet. */
+export const SPRITE_PRESETS: SpritePreset[] = [
+  { id: 'aventureiro', label: 'aventureiro' },
+  { id: 'aventureira', label: 'aventureira' },
+  { id: 'dev', label: 'dev' },
+  { id: 'mago', label: 'mago' },
+  { id: 'cavaleiro', label: 'cavaleiro' },
+  { id: 'arqueiro', label: 'arqueiro' },
+
+  { id: 'gato', label: 'gato' },
+  { id: 'cachorro', label: 'cachorro' },
+  { id: 'raposa', label: 'raposa' },
+  { id: 'sapo', label: 'sapo' },
+  { id: 'robo', label: 'robô' },
+  { id: 'pato', label: 'pato' },
+
+  { id: 'alienigena', label: 'alienígena' },
+  { id: 'dinossauro', label: 'dinossauro' },
+  { id: 'feiticeiro', label: 'feiticeiro' },
+  { id: 'panda', label: 'panda' },
+  { id: 'panda-vermelho', label: 'panda-vermelho' },
+  { id: 'androide', label: 'androide' },
+
+  { id: 'paladino', label: 'paladino' },
+  { id: 'bruxa', label: 'bruxa' },
+  { id: 'cacador', label: 'caçador' },
+  { id: 'clerigo', label: 'clérigo' },
+  { id: 'diabinho', label: 'diabinho' },
+  { id: 'mago-do-gelo', label: 'mago do gelo' },
 ];
 
-const MOUTH_FILL: Record<MouthState, string> = {
-  closed: '2112',
-  open: '1111',
-  wide: '1111',
-};
+/** Where to park the sheet so `index` is the visible cell. */
+export function spriteBackgroundPosition(index: number): string {
+  const safe = ((index % SPRITE_PRESETS.length) + SPRITE_PRESETS.length) % SPRITE_PRESETS.length;
+  const column = safe % SHEET_COLUMNS;
+  const row = Math.floor(safe / SHEET_COLUMNS);
 
-/** Row 6 only opens up on the widest mouth, which is what sells a shout. */
-const CHIN: Record<MouthState, string> = {
-  closed: '...122221...',
-  open: '...122221...',
-  wide: '...121121...',
-};
+  // With the sheet scaled to 600% x 400%, one step is 100/(n-1) percent.
+  const x = (column / (SHEET_COLUMNS - 1)) * 100;
+  const y = (row / (SHEET_ROWS - 1)) * 100;
 
-const FEET = {
-  together: '...11..11...',
-  apart: '..11....11..',
-} as const;
-
-export type FootState = keyof typeof FEET;
-
-function bodyRows(preset: Preset, mouth: MouthState, feet: FootState): string[] {
-  const torso = preset.torso.repeat(4);
-
-  return [
-    preset.hair[0],
-    preset.hair[1],
-    '..12222221..',
-    '..12122121..',
-    '..12222221..',
-    `..12${MOUTH_FILL[mouth]}21..`,
-    CHIN[mouth],
-    '....1221....',
-    `..11${torso}11..`,
-    `.121${torso}121.`,
-    `.121${torso}121.`,
-    `..11${torso}11..`,
-    '...12..21...',
-    FEET[feet],
-  ];
+  return `${x}% ${y}%`;
 }
 
-/**
- * One SVG path per shade, with horizontal runs merged — a 12x14 grid drawn as
- * one <rect> per pixel would put ~100 nodes on screen per person, and the voice
- * strip can hold forty of them.
- */
-function buildPaths(rows: string[]): Record<Shade, string> {
-  const paths: Record<Shade, string> = { '1': '', '2': '', '3': '' };
-
-  rows.forEach((row, y) => {
-    let x = 0;
-
-    while (x < row.length) {
-      const shade = row[x];
-      if (shade === '.') {
-        x += 1;
-        continue;
-      }
-
-      let run = 1;
-      while (x + run < row.length && row[x + run] === shade) run += 1;
-
-      paths[shade as Shade] += `M${x} ${y}h${run}v1h-${run}z`;
-      x += run;
-    }
-  });
-
-  return paths;
-}
-
-const cache = new Map<string, Record<Shade, string>>();
-
-export function spritePaths(
-  presetId: string,
-  mouth: MouthState,
-  feet: FootState,
-): Record<Shade, string> {
-  const key = `${presetId}|${mouth}|${feet}`;
-  const hit = cache.get(key);
-  if (hit) return hit;
-
-  const preset = SPRITE_PRESETS.find((candidate) => candidate.id === presetId) ?? SPRITE_PRESETS[0];
-  const paths = buildPaths(bodyRows(preset, mouth, feet));
-  cache.set(key, paths);
-
-  return paths;
+export function presetIndex(presetId: string): number {
+  const index = SPRITE_PRESETS.findIndex((preset) => preset.id === presetId);
+  return index === -1 ? 0 : index;
 }
 
 /** Stable per person, so the same id always gets the same character. */
@@ -132,8 +78,19 @@ export function presetForSeed(seed: string): string {
   return SPRITE_PRESETS[hash % SPRITE_PRESETS.length].id;
 }
 
-/** Loudness to mouth opening. Thresholds match the speaking cutoff elsewhere. */
-export function mouthForLevel(level: number, isMuted: boolean): MouthState {
-  if (isMuted || level <= 0.12) return 'closed';
-  return level > 0.38 ? 'wide' : 'open';
+/**
+ * How high the character jumps, in pixels, for a given loudness.
+ *
+ * The mouth used to open because the sprite was generated from a matrix this
+ * file owned; drawn art cannot do that without a second frame per character.
+ * Jumping keeps the property that mattered: it is a meter, not a badge, so the
+ * same number that drives the level bars drives the height.
+ */
+export const SPEAKING_THRESHOLD = 0.12;
+
+export function hopHeightFor(level: number, isMuted: boolean): number {
+  if (isMuted || level <= SPEAKING_THRESHOLD) return 0;
+
+  const scaled = (level - SPEAKING_THRESHOLD) / (1 - SPEAKING_THRESHOLD);
+  return Number((2.5 + Math.min(1, scaled) * 6).toFixed(1));
 }

@@ -1,13 +1,14 @@
 'use client';
 
 import clsx from 'clsx';
+import type { CSSProperties } from 'react';
 import { prefersReducedMotion } from '../lib/motion-prefs';
-import { mouthForLevel } from '../lib/sprites';
+import { SPEAKING_THRESHOLD, hopHeightFor, presetForSeed } from '../lib/sprites';
 import type { VoiceParticipant } from '../lib/types';
-import { usePresetFor } from './sprite-provider';
+import { useSpriteChoice } from './sprite-provider';
 import { Sprite } from './ui/sprite';
 
-const SPRITE_PX = 22;
+const WALKER_PX = 30;
 const MIN_WALK_S = 13;
 const WALK_SPREAD_S = 10;
 
@@ -23,7 +24,7 @@ function hashOf(value: string): number {
  * The room, as characters pacing along the bottom of the window.
  *
  * Everyone walks until they say something: a speaker stops where they are,
- * their mouth tracks their real level, and their name appears. Silence is
+ * jumps in time with their real level, and their name appears. Silence is
  * motion, speech is stillness — the inversion is what makes the talker easy to
  * pick out of a crowd of forty.
  */
@@ -81,10 +82,13 @@ function Walker({
   isSelf: boolean;
   isStatic: boolean;
 }) {
-  const presetId = usePresetFor(participant.id);
+  const { ownUserId, ownPresetId } = useSpriteChoice();
+  const presetId =
+    participant.id === ownUserId && ownPresetId ? ownPresetId : presetForSeed(participant.id);
 
   const level = participant.audioLevel ?? 0;
-  const isTalking = !participant.isMuted && level > 0.12;
+  const isTalking = !participant.isMuted && level > SPEAKING_THRESHOLD;
+  const hop = hopHeightFor(level, participant.isMuted ?? false);
 
   const hash = hashOf(participant.id);
   const duration = MIN_WALK_S + (hash % WALK_SPREAD_S);
@@ -92,9 +96,22 @@ function Walker({
   // loop, so nobody marches in step with anybody else.
   const delay = -(hash % (duration * 10)) / 10;
 
-  const track = isStatic
+  const track: CSSProperties = isStatic
     ? { left: `${(index / Math.max(1, total)) * 88 + 4}%` }
-    : { animation: `sprite-walk ${duration}s ease-in-out ${delay}s infinite` };
+    : {
+        animation: `sprite-walk ${duration}s ease-in-out ${delay}s infinite`,
+        // The keyframe stops the walk a whole character short of the wall.
+        ['--walker-size' as string]: `${WALKER_PX}px`,
+      };
+
+  const motion: CSSProperties | undefined = isStatic
+    ? undefined
+    : isTalking
+      ? ({
+          animation: 'sprite-hop 0.42s ease-in-out infinite',
+          ['--sprite-hop']: `${hop}px`,
+        } as never)
+      : { animation: `sprite-bob ${(duration / 18).toFixed(2)}s ease-in-out infinite` };
 
   return (
     <span
@@ -111,11 +128,11 @@ function Walker({
        * strip-wide box — throwing the sprite clean off the right edge on every
        * turn — and centred the name on the strip instead of on the person.
        */}
-      <span className="relative block w-[22px]">
+      <span className="relative block" style={{ width: WALKER_PX }}>
         {isTalking ? (
           <span
             className={clsx(
-              'absolute -top-[13px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] uppercase tracking-wider glow',
+              'absolute -top-[12px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] uppercase tracking-wider glow',
               isSelf ? 'text-amber-200' : 'text-amber-300',
             )}
           >
@@ -125,20 +142,20 @@ function Walker({
 
         {/* Only the character turns around; the label must not read mirrored. */}
         <span
-          className="block h-[34px] w-[22px]"
+          className="sprite-face block"
           style={
             isStatic
               ? undefined
               : { animation: `sprite-face ${duration}s steps(1) ${delay}s infinite` }
           }
         >
-          <Sprite
-            presetId={presetId}
-            crop="full"
-            mouth={mouthForLevel(level, participant.isMuted ?? false)}
-            tone={participant.isMuted ? 'dim' : isTalking ? 'bright' : 'normal'}
-            isWalking={!isStatic}
-          />
+          {/* Separate element: the jump must survive `sprite-halted`. */}
+          <span
+            className="block origin-bottom"
+            style={{ width: WALKER_PX, height: WALKER_PX, ...motion }}
+          >
+            <Sprite presetId={presetId} isDim={participant.isMuted} />
+          </span>
         </span>
       </span>
     </span>

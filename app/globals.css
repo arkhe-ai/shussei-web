@@ -368,10 +368,42 @@
     transform: translateX(0);
   }
   50% {
-    transform: translateX(calc(100% - 22px));
+    transform: translateX(calc(100% - var(--walker-size)));
   }
   100% {
     transform: translateX(0);
+  }
+}
+
+/* Idle life while walking. Small enough to read as a gait, not a bounce. */
+@keyframes sprite-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+
+/*
+ * Speaking. The drawn characters cannot open a mouth without a second frame
+ * each, so loudness drives a jump instead — still a meter rather than a badge,
+ * off the same number as the level bars. The squash is what sells the landing.
+ */
+@keyframes sprite-hop {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  18% {
+    transform: translateY(0) scaleY(0.86);
+  }
+  48% {
+    transform: translateY(calc(var(--sprite-hop, 5px) * -1)) scaleY(1.08);
+  }
+  78% {
+    transform: translateY(0) scaleY(0.93);
   }
 }
 
@@ -386,43 +418,14 @@
   }
 }
 
-@keyframes sprite-step-a {
-  0%,
-  49.9% {
-    opacity: 1;
-  }
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes sprite-step-b {
-  0%,
-  49.9% {
-    opacity: 0;
-  }
-  50%,
-  100% {
-    opacity: 1;
-  }
-}
-
 @layer utilities {
-  .sprite-step-a {
-    animation: sprite-step-a 0.44s steps(1) infinite;
-  }
-
-  .sprite-step-b {
-    animation: sprite-step-b 0.44s steps(1) infinite;
-  }
-
   /*
-   * Someone talking stops walking. `animation-play-state` does not inherit, so
-   * this has to reach the leg frames inside the SVG as well as the track.
+   * Someone talking stops where they are. Targeted rather than a blanket
+   * `.sprite-halted *`, because the jump has to keep running — it is the whole
+   * point of stopping.
    */
   .sprite-halted,
-  .sprite-halted * {
+  .sprite-halted .sprite-face {
     animation-play-state: paused !important;
   }
 }
