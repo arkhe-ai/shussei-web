@@ -13,7 +13,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # NEXT_PUBLIC_* values are inlined into the client bundle at build time, so the
 # API base URL has to be supplied here (not only as a runtime env var).
-ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
+ARG NEXT_PUBLIC_API_BASE_URL=https://pedro-matumoto-550xbe-350xbe.taileb276f.ts.net
 ARG NEXT_PUBLIC_MOCK=0
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_MOCK=$NEXT_PUBLIC_MOCK
