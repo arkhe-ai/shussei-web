@@ -112,6 +112,39 @@ Socket.IO, namespace `/app`:
 
 Os DTOs vivem em `lib/types.ts` e espelham o contrato do plano.
 
+## TODO / backlog do cliente web
+
+### RTC, voz e vídeo
+
+1. **Corrigir flicker no vídeo transmitido.** Investigação concluída: causa provável está no ciclo de attach/detach do `ScreenStage`, provocado por novos objetos `MediaFeed` em sincronizações. Backend LiveKit não apresentou causa. Corrigir no frontend.
+2. **Controles de som.** Adicionar controle de volume de saída por participante e/ou volume global da call.
+3. **Seleção de dispositivos.** Permitir escolher microfone e dispositivo de áudio/saída antes e durante a call.
+4. **Mostrar nome em vez de id na lista de voz.** Chat já usa nome real/personalizado via backend. Falta enviar `name` no token LiveKit e validar nomes dos participantes da call, com fallback para id apenas quando inevitável.
+5. **Não sair do áudio ao clicar em canal de texto.** Navegar entre canais de texto não deve derrubar a conexão de voz se o usuário continua na mesma call.
+6. **Fullscreen e redimensionamento do vídeo transmitido.** Permitir expandir a tela compartilhada para fullscreen e ajustar melhor o tamanho/layout do stage.
+
+### UX e identidade visual
+
+7. **Mascotes enquanto falamos.** Explorar um mascote animado/reagente à voz (ex.: estilo CLI / Claude-like) para indicar atividade de fala.
+8. **Botão para trocar a cor/tema.** Adicionar controle na UI para alternar paleta sem editar manualmente os tokens em `app/globals.css`.
+
+### Colaboração e extensões
+
+9. **Compartilhamento de música.** Explorar audição conjunta/sincronizada, seja por sincronização de playback, seja por transmissão controlada de áudio, com atenção à latência e às implicações de produto/licenciamento.
+10. **Bots de voz ativáveis por comando.** Permitir bots com presença em canal de voz e ativação por comandos/trigger de voz para ações úteis dentro da sala.
+11. **Sistema de arquivos.** Pensar um modelo de arquivos/recursos compartilhados no contexto dos canais (upload, organização, permissões e consulta).
+12. **Excalidraw embutido.** Integrar um quadro colaborativo embutido para desenho/diagramação em tempo real.
+
+### Canais e administração
+
+13. **CRUD de canais no frontend.** Rotas backend concluídas e publicadas. Adicionar interface para criar, editar, reordenar e remover canais.
+14. **Edição de allowlist pelo frontend.** Rotas backend concluídas e publicadas. Criar interface para adicionar, remover e revisar usuários autorizados.
+
+### Conta e sessão
+
+15. **Logout no frontend.** Backend concluído e publicado. Adicionar ação visível e limpar sessão, socket e estado local corretamente.
+16. **Mudar username no frontend.** Endpoint backend concluído e publicado. Adicionar formulário e atualizar nome exibido sem novo login Google sobrescrever mudança.
+
 ## Lacunas de contrato (precisam de decisão do backend)
 
 1. **Diretório de usuários.** `presence.snapshot` só traz `onlineUserIds`, sem
