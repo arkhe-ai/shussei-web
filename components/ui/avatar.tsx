@@ -1,8 +1,8 @@
 'use client';
 
 import clsx from 'clsx';
-import { hopHeightFor, presetForSeed } from '../../lib/sprites';
-import { useSpriteChoice } from '../sprite-provider';
+import { hopHeightFor } from '../../lib/sprites';
+import { usePresetFor } from '../sprite-provider';
 import { Sprite } from './sprite';
 
 const sizeClass = {
@@ -38,9 +38,7 @@ export function Avatar({
   isOffline?: boolean;
   className?: string;
 }) {
-  const { ownUserId, ownPresetId } = useSpriteChoice();
-
-  const presetId = seed === ownUserId && ownPresetId ? ownPresetId : presetForSeed(seed);
+  const presetId = usePresetFor(seed);
   const clamped = isMuted || isOffline ? 0 : Math.max(0, Math.min(1, level));
   const hop = hopHeightFor(clamped, isMuted);
 

@@ -1,8 +1,12 @@
+export type SpriteId = 'curto' | 'chapeu' | 'moicano' | 'longo' | 'careca' | 'gorro';
+export type UserSprites = Record<string, SpriteId | null>;
+
 export type SessionUser = {
   id: string;
   email: string;
   name: string;
   avatarUrl: string | null;
+  spriteId?: SpriteId | null;
 };
 
 export type ChannelDto = {
@@ -23,6 +27,12 @@ export type EphemeralMessage = {
 export type PresenceSnapshot = {
   onlineUserIds: string[];
   channelOccupancy: Record<string, string[]>;
+  userSprites?: UserSprites;
+};
+
+export type PresenceSpriteChange = {
+  userId: string;
+  spriteId: SpriteId | null;
 };
 
 export type PresenceChange = {

@@ -43,7 +43,7 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
 
   const { user, isLoading: isAuthLoading } = useAuth();
   const { channels, isLoading: areChannelsLoading } = useChannels();
-  const { onlineUserIds, channelOccupancy, isConnected } = usePresence(user?.id ?? null);
+  const { onlineUserIds, channelOccupancy, userSprites, isConnected } = usePresence(user?.id ?? null);
   const { usersById, isAvailable: isDirectoryAvailable } = useDirectory(user ? [user] : []);
 
   const activeChannel = channels.find((channel) => channel.id === initialChannelId) ?? null;
@@ -223,7 +223,7 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
     voice.isConnected && connectedChannel !== null && connectedChannel.id !== activeChannel?.id;
 
   return (
-    <SpriteProvider userId={user.id}>
+    <SpriteProvider userId={user.id} ownPresetId={user.spriteId ?? null} userSprites={userSprites}>
       <div
         className={clsx(
           'grid h-dvh grid-cols-[230px_1fr] overflow-hidden bg-base-900',

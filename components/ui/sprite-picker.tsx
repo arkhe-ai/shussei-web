@@ -3,6 +3,7 @@
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { SPRITE_PRESETS, presetForSeed } from '../../lib/sprites';
+import type { SpriteId } from '../../lib/types';
 import { useSpriteChoice } from '../sprite-provider';
 import { Sprite } from './sprite';
 
@@ -65,7 +66,7 @@ export function SpritePicker() {
                   title={preset.label}
                   aria-pressed={preset.id === current}
                   onClick={() => {
-                    setOwnPresetId(preset.id);
+                    setOwnPresetId(preset.id as SpriteId);
                     setIsOpen(false);
                   }}
                   className={clsx(

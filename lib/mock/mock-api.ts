@@ -33,6 +33,10 @@ export async function mockApiFetch<T>(path: string, init?: RequestInit): Promise
   }
 
   if (pathname === '/api/v1/auth/me') {
+    if ((init?.method ?? 'GET').toUpperCase() === 'PATCH') {
+      const body = JSON.parse(String(init?.body ?? '{}')) as { spriteId?: SessionUser['spriteId'] };
+      mockSessionUser.spriteId = body.spriteId ?? null;
+    }
     return delay({ user: mockSessionUser satisfies SessionUser } as T);
   }
 
