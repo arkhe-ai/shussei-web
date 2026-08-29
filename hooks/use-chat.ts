@@ -17,7 +17,7 @@ function appendUnique(current: EphemeralMessage[], incoming: EphemeralMessage): 
 export function useChat(channelId: string | null): {
   messages: EphemeralMessage[];
   isLoading: boolean;
-  sendMessage: (body: string) => void;
+  sendMessage: (body: string, fileIds?: string[]) => void;
 } {
   const [messages, setMessages] = useState<EphemeralMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,10 +69,19 @@ export function useChat(channelId: string | null): {
     };
   }, [channelId]);
 
+  /*
+   * Attachments travel as ids the backend already stored. The socket never
+   * carries bytes, Base64 or a client URL, and `fileIds` is omitted entirely
+   * for a plain message so the existing text-only payload is unchanged.
+   */
   const sendMessage = useCallback(
-    (body: string) => {
+    (body: string, fileIds?: string[]) => {
       if (!channelId) return;
-      getAppSocket().emit('chat.send', { channelId, body });
+      getAppSocket().emit('chat.send', {
+        channelId,
+        body,
+        ...(fileIds && fileIds.length > 0 ? { fileIds } : {}),
+      });
     },
     [channelId],
   );

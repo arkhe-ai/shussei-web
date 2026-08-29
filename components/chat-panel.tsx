@@ -3,7 +3,12 @@
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
-import type { EphemeralMessage } from '../lib/types';
+import { useUploadFile } from '../hooks/use-upload-file';
+import { formatBytes } from '../lib/format';
+import type { EphemeralMessage, StoredFileDto } from '../lib/types';
+import { ChatAttachment } from './chat-attachment';
+import { FileUploadZone } from './file-upload-zone';
+import { UploadQueue } from './upload-queue';
 import { Avatar } from './ui/avatar';
 import { KeyHint } from './ui/key-hint';
 import { Scramble } from './ui/scramble';
@@ -30,13 +35,25 @@ export function ChatPanel({
   channelId: string;
   channelName?: string;
   messages: EphemeralMessage[];
-  onSend: (body: string) => void;
+  onSend: (body: string, fileIds: string[]) => void;
   isLoading?: boolean;
   currentUserId?: string;
   disabled?: boolean;
 }) {
   const [body, setBody] = useState('');
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * Attachments are uploaded before they are announced: the file becomes
+   * durable through REST, and only its id travels over the socket. Nothing
+   * binary, Base64 or blob-shaped is ever emitted.
+   *
+   * They land at the channel root rather than in a folder, because the composer
+   * has no folder context and inventing one would put files somewhere the
+   * sender never chose.
+   */
+  const uploads = useUploadFile(channelId, null);
+  const [pending, setPending] = useState<StoredFileDto[]>([]);
 
   /*
    * Decided once per message id and then remembered, so a re-render never
@@ -62,11 +79,26 @@ export function ChatPanel({
     list.scrollTop = list.scrollHeight;
   }, [messages.length, channelId]);
 
+  // Switching channels must not carry a half-composed attachment across.
+  useEffect(() => {
+    setPending([]);
+  }, [channelId]);
+
+  const hasContent = body.trim().length > 0 || pending.length > 0;
+  const canSend = hasContent && !disabled && !uploads.isUploading;
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!body.trim()) return;
-    onSend(body.trim());
+    // An empty line with nothing attached is not a message.
+    if (!canSend) return;
+
+    onSend(
+      body.trim(),
+      pending.map((file) => file.id),
+    );
     setBody('');
+    setPending([]);
+    uploads.clearFinished();
   }
 
   return (
@@ -122,14 +154,61 @@ export function ChatPanel({
                   <Avatar seed={message.author.id} name={message.author.name} size="sm" />
                   &lt;{message.author.name}&gt;
                 </span>
-                <p className="whitespace-pre-wrap break-words text-[13px] text-content-primary">
-                  <Typewriter text={message.body} animate={shouldType(message)} />
-                </p>
+                <div className="min-w-0">
+                  {message.body ? (
+                    <p className="whitespace-pre-wrap break-words text-[13px] text-content-primary">
+                      <Typewriter text={message.body} animate={shouldType(message)} />
+                    </p>
+                  ) : null}
+                  {message.attachments?.map((attachment) => (
+                    <ChatAttachment key={attachment.id} attachment={attachment} />
+                  ))}
+                </div>
               </motion.li>
             ))}
           </AnimatePresence>
         </ul>
       </div>
+
+      {uploads.items.length > 0 || pending.length > 0 ? (
+        <div className="flex shrink-0 flex-col gap-1 border-t border-line px-3 py-1.5">
+          <UploadQueue
+            items={uploads.items}
+            onCancel={uploads.cancel}
+            onRetry={uploads.retry}
+            onRemove={uploads.remove}
+            onClearFinished={uploads.clearFinished}
+          />
+
+          {pending.length > 0 ? (
+            <ul aria-label="anexos prontos" className="flex flex-wrap gap-1">
+              {pending.map((file) => (
+                <li
+                  key={file.id}
+                  className="flex items-center gap-1 border border-line bg-base-900 px-1.5 py-0.5"
+                >
+                  <span className="max-w-[180px] truncate text-[11px] text-content-primary">
+                    {file.originalName}
+                  </span>
+                  <span className="text-[11px] tabular-nums text-content-muted">
+                    {formatBytes(file.sizeBytes)}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`remover anexo ${file.originalName}`}
+                    onClick={() =>
+                      setPending((current) => current.filter((item) => item.id !== file.id))
+                    }
+                    className="focus-ring text-[11px] text-content-muted transition-colors hover:text-danger-500"
+                  >
+                    x
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       <form
         aria-label="chat composer"
@@ -148,9 +227,20 @@ export function ChatPanel({
           disabled={disabled}
           onChange={(event) => setBody(event.target.value)}
         />
+        <FileUploadZone
+          variant="inline"
+          disabled={disabled}
+          onFiles={(picked) =>
+            picked.forEach((file) =>
+              uploads.upload(file, {
+                onUploaded: (stored) => setPending((current) => [...current, stored]),
+              }),
+            )
+          }
+        />
         <button
           type="submit"
-          disabled={disabled}
+          disabled={!canSend}
           className="focus-ring border border-line px-2 py-0.5 text-[12px] text-content-secondary transition-colors hover:border-line-bright hover:text-amber-300 disabled:opacity-40"
         >
           Enviar
