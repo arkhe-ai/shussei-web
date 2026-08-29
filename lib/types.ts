@@ -20,12 +20,62 @@ export type ChannelDto = {
   position: number;
 };
 
+/** A durable folder inside a channel. `parentId: null` is the channel root. */
+export type FolderDto = {
+  id: string;
+  channelId: string;
+  parentId: string | null;
+  name: string;
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** A durable file. Outlives the ephemeral chat message that may reference it. */
+export type StoredFileDto = {
+  id: string;
+  channelId: string;
+  folderId: string | null;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdByUserId: string;
+  createdAt: string;
+  downloadUrl: string;
+};
+
+/**
+ * The slice of a stored file that travels with a chat message. Narrower than
+ * `StoredFileDto` on purpose: a message carries what it needs to render, not
+ * the file's placement in the folder tree, which can change under it.
+ */
+export type FileAttachmentDto = {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  downloadUrl: string;
+  thumbnailUrl?: string;
+};
+
+/** One folder view. `folder` is null at the channel root, which has no record. */
+export type FolderContents = {
+  folder: FolderDto | null;
+  folders: FolderDto[];
+  files: StoredFileDto[];
+};
+
 export type EphemeralMessage = {
   id: string;
   channelId: string;
   author: SessionUser;
   body: string;
   sentAt: string;
+  /**
+   * Optional so text-only messages, and entries already sitting in the Redis
+   * buffer from before attachments existed, stay valid.
+   */
+  attachments?: FileAttachmentDto[];
 };
 
 export type PresenceSnapshot = {
