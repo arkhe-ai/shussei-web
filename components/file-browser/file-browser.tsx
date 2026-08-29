@@ -11,10 +11,13 @@ import {
   useUpdateFile,
   useUpdateFolder,
 } from '../../hooks/use-files';
+import { useUploadFile } from '../../hooks/use-upload-file';
 import { ApiError } from '../../lib/api';
 import { describeFileError } from '../../lib/files-api';
 import type { SessionUser, StoredFileDto } from '../../lib/types';
+import { FileUploadZone } from '../file-upload-zone';
 import { CommandButton } from '../ui/command-button';
+import { UploadQueue } from '../upload-queue';
 import { Scramble } from '../ui/scramble';
 import { BreadcrumbBar } from './breadcrumb-bar';
 import { FileActions, type MoveTarget } from './file-actions';
@@ -53,6 +56,7 @@ export function FileBrowser({
   const updateFile = useUpdateFile(channelId);
   const removeFile = useDeleteFile(channelId);
 
+  const uploads = useUploadFile(channelId, folderId);
   const [isCreating, setIsCreating] = useState(false);
   const [preview, setPreview] = useState<StoredFileDto | null>(null);
 
@@ -122,6 +126,19 @@ export function FileBrowser({
           </CommandButton>
         </div>
       </div>
+
+      {isBrowsable ? (
+        <div className="flex shrink-0 flex-col gap-2 border-b border-line px-3 py-2">
+          <FileUploadZone onFiles={(picked) => picked.forEach((file) => uploads.upload(file))} />
+          <UploadQueue
+            items={uploads.items}
+            onCancel={uploads.cancel}
+            onRetry={uploads.retry}
+            onRemove={uploads.remove}
+            onClearFinished={uploads.clearFinished}
+          />
+        </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {isLoading ? (
