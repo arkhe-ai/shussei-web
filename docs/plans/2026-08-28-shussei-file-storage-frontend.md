@@ -15,9 +15,9 @@
 None of the REST endpoints below exist in `shussei-api` today: there is no storage module, no `Folder` or `StoredFile` Prisma model, and no upload handling. Tasks 1–5 and 7 can be built and verified entirely in mock mode without any of this. Task 6 and the live-mode half of Task 8 cannot, and each item below is a contract the backend must settle first.
 
 - [ ] **The storage module exists** — the folders/files REST surface, persistence, and per-channel authorization.
-- [ ] **Download URL authentication is decided.** The session cookie is `httpOnly; SameSite=Lax` (`auth.service.ts`, `getSessionCookieOptions`). With the client on `app.*` and the API on `api.*`, an image request to `api.../files/:id` is cross-site and the cookie is **not** sent, so every image breaks in production while continuing to work on `localhost:3000` against `localhost:3001`, which is same-site and hides the problem in development. Pick one: signed/tokenised download URLs, `SameSite=None; Secure` with credentialed CORS, or a same-origin Next proxy route. The frontend must not assume a bare `img src` authenticates.
+- [x] **Download URL authentication is decided — solved on the client.** The session cookie is `httpOnly; SameSite=Lax` (`auth.service.ts`, `getSessionCookieOptions`). With the client on `app.*` and the API on `api.*`, an image request to `api.../files/:id` is cross-site and the cookie is **not** sent, so every image breaks in production while continuing to work on `localhost:3000` against `localhost:3001`, which is same-site and hides the problem in development. Settled as the same-origin Next proxy: `app/api/files/[fileId]/route.ts` forwards the cookie, so the browser request never leaves this origin and no cookie policy has to change. What the backend still owes is the endpoint behind it — `GET`/`HEAD /api/v1/files/:fileId` serving bytes, honouring `Range`, and answering 200/206/401/404/416. `API_INTERNAL_URL` addresses the API from inside the Next container.
 - [ ] **`chat.send` accepts `fileIds`.** The gateway currently binds `{ channelId, body }` and silently drops unknown fields, so attachments sent today would vanish with no error surfaced anywhere.
-- [ ] **`EphemeralMessage` carries attachments.** Neither `lib/types.ts` nor the API's `ChatService` has an attachment field on the message.
+- [ ] **`EphemeralMessage` carries attachments.** The client type now has the field; the API's `ChatService` still does not, so an attachment sent through a real server arrives on a message that has nowhere to put it.
 - [ ] **The Redis buffer preserves attachment metadata**, either by serialising it into the stored message or by re-hydrating it in `listRecent`. Without this, recovered messages lose their attachments and the corresponding acceptance criterion cannot hold — it is backend behaviour the frontend can only consume.
 
 ## Global Constraints
@@ -107,6 +107,20 @@ resolved `attachments`, not `fileIds`:
 { channelId: string; body: string; fileIds?: string[] }
 ```
 
+Uploads put the destination folder in the query string, never in the multipart body — the body
+carries only the file, and an absent `folderId` means the channel root:
+
+```text
+POST /api/v1/channels/:channelId/files?folderId=<uuid>   → into a folder
+POST /api/v1/channels/:channelId/files                   → into the channel root
+```
+
+Every read is addressed through the client's own origin, which proxies to the API:
+
+```text
+<img src="/api/files/:fileId">  →  Next route handler  →  GET /api/v1/files/:fileId
+```
+
 ## Planned File Structure
 
 - `lib/types.ts` — folder, file, attachment, and chat contract types.
@@ -155,14 +169,14 @@ resolved `attachments`, not `fileIds`:
 - Create: `lib/files-api.ts`
 - Create: `tests/lib/files-api.test.ts`
 
-- [ ] Add the folder, file, attachment, and folder-content types, including nullable root IDs and numeric byte sizes.
-- [ ] Extend `EphemeralMessage` with an optional `attachments` array so text-only messages and already-buffered entries keep type-checking.
-- [ ] Add typed functions for list content, breadcrumbs, create/update/delete folder, upload, update/delete file, and download URL creation.
-- [ ] Ensure JSON requests keep the existing `Content-Type: application/json` behavior while `FormData` requests omit that header so the browser creates the multipart boundary.
-- [ ] Make `apiFetch` tolerate an empty response body. It currently ends in an unconditional `return response.json()`, so a `204 No Content` from `DELETE /folders/:id` or `DELETE /files/:id` throws a `SyntaxError` rather than resolving or raising `ApiError`.
-- [ ] Preserve API error status codes for `401`, `403`, `404`, `409`, `413`, and `415` so components can show specific messages.
-- [ ] Test URL encoding, root `null` query parameters, JSON headers, multipart headers, `204`/empty-body responses, and error propagation.
-- [ ] Commit: `feat(web): add file storage contracts`
+- [x] Add the folder, file, attachment, and folder-content types, including nullable root IDs and numeric byte sizes.
+- [x] Extend `EphemeralMessage` with an optional `attachments` array so text-only messages and already-buffered entries keep type-checking.
+- [x] Add typed functions for list content, breadcrumbs, create/update/delete folder, upload, update/delete file, and download URL creation.
+- [x] Ensure JSON requests keep the existing `Content-Type: application/json` behavior while `FormData` requests omit that header so the browser creates the multipart boundary.
+- [x] Make `apiFetch` tolerate an empty response body. It currently ends in an unconditional `return response.json()`, so a `204 No Content` from `DELETE /folders/:id` or `DELETE /files/:id` throws a `SyntaxError` rather than resolving or raising `ApiError`.
+- [x] Preserve API error status codes for `401`, `403`, `404`, `409`, `413`, and `415` so components can show specific messages.
+- [x] Test URL encoding, root `null` query parameters, JSON headers, multipart headers, `204`/empty-body responses, and error propagation.
+- [x] Commit: `feat(web): add file storage contracts`
 
 ### Task 2: Add folder/file queries and upload lifecycle hooks
 
@@ -181,14 +195,14 @@ resolved `attachments`, not `fileIds`:
 - `useCreateFolder(channelId: string, parentId: string | null)` exposes `mutateAsync(name: string)`.
 - `useUploadFile(channelId: string, folderId: string | null)` exposes `upload(file: File, callbacks?)` with progress, cancel, retry, and status.
 
-- [ ] Route every upload through a single `lib/upload.ts` entry point that checks `isMockMode()` **before** touching the network. `apiFetch` performs that check internally, but a progress-capable upload bypasses `apiFetch` entirely, so without an explicit check mock mode would issue real network requests.
-- [ ] Use TanStack Query keys that include channel and folder IDs, for example `['file-contents', channelId, folderId]`.
-- [ ] Invalidate the active folder and breadcrumb-related queries after create, upload, rename, move, and delete.
-- [ ] Keep upload queue state local to the feature; do not put transient `File` objects in URL state or Socket.IO state.
-- [ ] Use `XMLHttpRequest` or an equivalent progress-capable browser API for upload progress; use `fetch` only if progress is not claimed.
-- [ ] Implement cancellation with `AbortController`/XHR abort and retry as a new upload attempt.
-- [ ] Test success, progress, cancel, retry, API failure mapping, query invalidation, and that mock mode never reaches the network.
-- [ ] Commit: `feat(web): add file queries and upload state`
+- [x] Route every upload through a single `lib/upload.ts` entry point that checks `isMockMode()` **before** touching the network. `apiFetch` performs that check internally, but a progress-capable upload bypasses `apiFetch` entirely, so without an explicit check mock mode would issue real network requests.
+- [x] Use TanStack Query keys that include channel and folder IDs, for example `['file-contents', channelId, folderId]`.
+- [x] Invalidate the active folder and breadcrumb-related queries after create, upload, rename, move, and delete.
+- [x] Keep upload queue state local to the feature; do not put transient `File` objects in URL state or Socket.IO state.
+- [x] Use `XMLHttpRequest` or an equivalent progress-capable browser API for upload progress; use `fetch` only if progress is not claimed.
+- [x] Implement cancellation with `AbortController`/XHR abort and retry as a new upload attempt.
+- [x] Test success, progress, cancel, retry, API failure mapping, query invalidation, and that mock mode never reaches the network.
+- [x] Commit: `feat(web): add file queries and upload state`
 
 ### Task 3: Build the file browser route and navigation UI
 
@@ -204,16 +218,16 @@ resolved `attachments`, not `fileIds`:
 - Create: `tests/components/file-browser.test.tsx`
 - Modify: existing shell tests if the `AppShell` signature change reaches them
 
-- [ ] Make `app/channels/layout.tsx` read `useSelectedLayoutSegment()` and pass `view: 'chat' | 'files'` to `AppShell`. The layout currently returns `<AppShell initialChannelId={channelId} />` and **discards `children`**, so a new page segment under `[channelId]` renders nothing at all — the user navigates to `/files` and still sees the chat.
-- [ ] Give `AppShell` a `view` prop that swaps only the `<main>` content, leaving the sidebar, presence list, sprite strip, voice dock, and `RoomAudio` mounted. Do not move the shell out of the layout: it lives there specifically so switching segments does not tear down the LiveKit room.
-- [ ] `app/channels/[channelId]/files/page.tsx` renders `null`, matching `[channelId]/page.tsx` — it exists only so the route resolves.
-- [ ] Render breadcrumbs, immediate child folders, immediate files, toolbar, loading skeleton, empty state, error state, and access-denied state.
-- [ ] Navigate nested folders through a query parameter on the same route, so neither the shell nor the voice connection is ever remounted.
-- [ ] Show image thumbnails using the download strategy agreed in Backend Pre-conditions, and type-specific icons for non-image files.
-- [ ] Format bytes and dates consistently; never display the physical storage path.
-- [ ] Add an "arquivos" navigation affordance from the active text channel and a way back to chat; keep it keyboard-reachable without colliding with the existing arrow/M/D/S/X/space bindings in `AppShell`.
-- [ ] Test root/nested navigation, empty folder, loading/error states, image vs generic file rendering, channel mismatch handling, and that switching to the files view leaves the voice dock mounted.
-- [ ] Commit: `feat(web): add channel file browser`
+- [x] Make `app/channels/layout.tsx` read `useSelectedLayoutSegment()` and pass `view: 'chat' | 'files'` to `AppShell`. The layout currently returns `<AppShell initialChannelId={channelId} />` and **discards `children`**, so a new page segment under `[channelId]` renders nothing at all — the user navigates to `/files` and still sees the chat.
+- [x] Give `AppShell` a `view` prop that swaps only the `<main>` content, leaving the sidebar, presence list, sprite strip, voice dock, and `RoomAudio` mounted. Do not move the shell out of the layout: it lives there specifically so switching segments does not tear down the LiveKit room.
+- [x] `app/channels/[channelId]/files/page.tsx` renders `null`, matching `[channelId]/page.tsx` — it exists only so the route resolves.
+- [x] Render breadcrumbs, immediate child folders, immediate files, toolbar, loading skeleton, empty state, error state, and access-denied state.
+- [x] Navigate nested folders through a query parameter on the same route, so neither the shell nor the voice connection is ever remounted.
+- [x] Show image thumbnails using the download strategy agreed in Backend Pre-conditions, and type-specific icons for non-image files.
+- [x] Format bytes and dates consistently; never display the physical storage path.
+- [x] Add an "arquivos" navigation affordance from the active text channel and a way back to chat; keep it keyboard-reachable without colliding with the existing arrow/M/D/S/X/space bindings in `AppShell`.
+- [x] Test root/nested navigation, empty folder, loading/error states, image vs generic file rendering, channel mismatch handling, and that switching to the files view leaves the voice dock mounted.
+- [x] Commit: `feat(web): add channel file browser`
 
 ### Task 4: Add folder/file actions and preview dialog
 
@@ -224,14 +238,14 @@ resolved `attachments`, not `fileIds`:
 - Modify: `hooks/use-files.ts`
 - Test: `tests/components/file-actions.test.tsx`, `tests/components/file-preview-dialog.test.tsx`
 
-- [ ] Add create-folder dialog with trim, non-empty, duplicate-name, pending, and server-error states.
-- [ ] Add file/folder actions for rename, move, download, and delete; use confirmation for destructive actions.
-- [ ] Keep optimistic updates limited to rename/move; refetch after server completion and roll back on failure.
-- [ ] Preview images in a dialog with name, size, author/date when available, download, delete, close button, and `Escape` handling.
-- [ ] Route preview and download through the agreed authenticated download strategy; a broken or unauthorized image must render a visible failure state rather than a silent blank.
-- [ ] For non-previewable types, show metadata and a download action instead of embedding arbitrary content.
-- [ ] Test keyboard close, delete confirmation, rename conflict, download link, image preview, image load failure, generic file fallback, and mutation errors.
-- [ ] Commit: `feat(web): add file actions and previews`
+- [x] Add create-folder dialog with trim, non-empty, duplicate-name, pending, and server-error states.
+- [x] Add file/folder actions for rename, move, download, and delete; use confirmation for destructive actions.
+- [x] Keep optimistic updates limited to rename/move; refetch after server completion and roll back on failure.
+- [x] Preview images in a dialog with name, size, author/date when available, download, delete, close button, and `Escape` handling.
+- [x] Route preview and download through the agreed authenticated download strategy; a broken or unauthorized image must render a visible failure state rather than a silent blank.
+- [x] For non-previewable types, show metadata and a download action instead of embedding arbitrary content.
+- [x] Test keyboard close, delete confirmation, rename conflict, download link, image preview, image load failure, generic file fallback, and mutation errors.
+- [x] Commit: `feat(web): add file actions and previews`
 
 ### Task 5: Add drag/drop upload and visible queue
 
@@ -242,13 +256,13 @@ resolved `attachments`, not `fileIds`:
 - Modify: `components/file-browser/file-browser.tsx`
 - Create: `tests/components/file-upload-zone.test.tsx`
 
-- [ ] Support picker and drag/drop, multiple files, keyboard activation, and `aria-label`/focus-visible states.
-- [ ] Perform client-side size/type checks for fast feedback while treating backend responses as authoritative.
-- [ ] Render each item as queued, uploading with progress, completed, cancelled, or failed with retry.
-- [ ] Refresh the active folder after success and expose the returned file metadata to the parent.
-- [ ] Prevent accidental duplicate submission while retaining an explicit retry action.
-- [ ] Test file selection, drop, invalid size/type, multiple files, progress, cancel, retry, and empty queue.
-- [ ] Commit: `feat(web): add file upload queue`
+- [x] Support picker and drag/drop, multiple files, keyboard activation, and `aria-label`/focus-visible states.
+- [x] Perform client-side size/type checks for fast feedback while treating backend responses as authoritative.
+- [x] Render each item as queued, uploading with progress, completed, cancelled, or failed with retry.
+- [x] Refresh the active folder after success and expose the returned file metadata to the parent.
+- [x] Prevent accidental duplicate submission while retaining an explicit retry action.
+- [x] Test file selection, drop, invalid size/type, multiple files, progress, cancel, retry, and empty queue.
+- [x] Commit: `feat(web): add file upload queue`
 
 ### Task 6: Integrate attachments into ephemeral chat
 
@@ -265,16 +279,16 @@ Build against mock mode; the live path cannot be verified until those land.
 - Create: `tests/components/chat-attachment.test.tsx`
 - Modify: `tests/components/chat-panel.test.tsx`
 
-- [ ] Widen `ChatPanel`'s `onSend` from `(body: string) => void` to carry attachment IDs, and update the `AppShell` call site that passes `sendMessage` straight through.
-- [ ] Relax the composer's `if (!body.trim()) return` guard so an attachment-only message can be sent, while an empty message with no completed attachment is still rejected.
-- [ ] Add an attachment picker/drop action to the composer without changing text-only behavior.
-- [ ] Upload selected files through REST first, show pending/completed/failed items, then send `fileIds` with `chat.send`.
-- [ ] Do not emit binary data, Base64, filesystem paths, or arbitrary client URLs through Socket.IO.
-- [ ] Render image attachments as clickable previews and generic attachments as cards with name, size, and download action.
-- [ ] Note that `useChat` holds messages in local `useState` rather than TanStack Query, unlike `use-auth`/`use-channels`/`use-directory`; there is no query to invalidate here, so incoming attachments must flow through the existing `chat.message`/`chat.recent` handlers and the `appendUnique` dedupe.
-- [ ] Preserve normal disabled/offline behavior, and make the composer clear only after the socket send succeeds according to the existing client semantics; failed uploads remain retryable.
-- [ ] Test text-only messages, attachment-only messages, text plus attachments, failed upload, image rendering, generic file rendering, and deduplication of incoming messages.
-- [ ] Commit: `feat(web): add chat file attachments`
+- [x] Widen `ChatPanel`'s `onSend` from `(body: string) => void` to carry attachment IDs, and update the `AppShell` call site that passes `sendMessage` straight through.
+- [x] Relax the composer's `if (!body.trim()) return` guard so an attachment-only message can be sent, while an empty message with no completed attachment is still rejected.
+- [x] Add an attachment picker/drop action to the composer without changing text-only behavior.
+- [x] Upload selected files through REST first, show pending/completed/failed items, then send `fileIds` with `chat.send`.
+- [x] Do not emit binary data, Base64, filesystem paths, or arbitrary client URLs through Socket.IO.
+- [x] Render image attachments as clickable previews and generic attachments as cards with name, size, and download action.
+- [x] Note that `useChat` holds messages in local `useState` rather than TanStack Query, unlike `use-auth`/`use-channels`/`use-directory`; there is no query to invalidate here, so incoming attachments must flow through the existing `chat.message`/`chat.recent` handlers and the `appendUnique` dedupe.
+- [x] Preserve normal disabled/offline behavior, and make the composer clear only after the socket send succeeds according to the existing client semantics; failed uploads remain retryable.
+- [x] Test text-only messages, attachment-only messages, text plus attachments, failed upload, image rendering, generic file rendering, and deduplication of incoming messages.
+- [x] Commit: `feat(web): add chat file attachments`
 
 ### Task 7: Extend mock mode and app navigation
 
@@ -286,13 +300,13 @@ Build against mock mode; the live path cannot be verified until those land.
 - Modify: `components/app-shell.tsx`
 - Modify: mock tests and fixtures
 
-- [ ] Add deterministic mock folders, files, image URLs, and attachment messages.
-- [ ] Simulate upload progress, cancellation, retryable failures, folder mutations, and file deletion through the `lib/upload.ts` dispatch established in Task 2.
-- [ ] Use inline data URIs or files under `public/` for mock images so mock mode needs no backend and no external host.
-- [ ] Make mock chat echo attachment metadata through the same event shape as the real socket.
-- [ ] Confirm navigation between channel chat and the files view keeps voice state, using the segment-driven shell from Task 3.
-- [ ] Test the complete feature with `NEXT_PUBLIC_MOCK=1` and verify no backend request is required.
-- [ ] Commit: `test(web): cover file storage in mock mode`
+- [x] Add deterministic mock folders, files, image URLs, and attachment messages.
+- [x] Simulate upload progress, cancellation, retryable failures, folder mutations, and file deletion through the `lib/upload.ts` dispatch established in Task 2.
+- [x] Use inline data URIs or files under `public/` for mock images so mock mode needs no backend and no external host.
+- [x] Make mock chat echo attachment metadata through the same event shape as the real socket.
+- [x] Confirm navigation between channel chat and the files view keeps voice state, using the segment-driven shell from Task 3.
+- [x] Test the complete feature with `NEXT_PUBLIC_MOCK=1` and verify no backend request is required.
+- [x] Commit: `test(web): cover file storage in mock mode`
 
 ### Task 8: Add end-to-end coverage and regression gates
 
@@ -301,11 +315,11 @@ Build against mock mode; the live path cannot be verified until those land.
 - Modify: `playwright.config.ts` only if fixtures need the existing setup
 - Modify: `README.md` with the new backend contract and local storage assumptions
 
-- [ ] Add a Playwright flow for opening channel files, creating a folder, uploading an image, previewing it, returning to chat, and sending it as an attachment. The existing config already boots `npm run dev` with `NEXT_PUBLIC_MOCK=1`, so this runs without a backend.
-- [ ] Cover API errors for oversized/unsupported uploads, deleted files, and unauthorized channels through visible UI states.
-- [ ] Run `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e` with mock mode where appropriate.
-- [ ] Verify existing chat, channel navigation, unread indicators, and voice-dock behavior remain unchanged — in particular that the arrow-key channel walk and the dock survive a trip through the files view.
-- [ ] Commit: `test(web): verify file storage flows`
+- [x] Add a Playwright flow for opening channel files, creating a folder, uploading an image, previewing it, returning to chat, and sending it as an attachment. The existing config already boots `npm run dev` with `NEXT_PUBLIC_MOCK=1`, so this runs without a backend.
+- [x] Cover API errors for oversized/unsupported uploads, deleted files, and unauthorized channels through visible UI states.
+- [x] Run `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e` with mock mode where appropriate.
+- [x] Verify existing chat, channel navigation, unread indicators, and voice-dock behavior remain unchanged — in particular that the arrow-key channel walk and the dock survive a trip through the files view.
+- [x] Commit: `test(web): verify file storage flows`
 
 ## Acceptance Criteria
 
