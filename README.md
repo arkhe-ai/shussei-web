@@ -3,7 +3,8 @@
 Cliente web do Shussei — comunicação privada em tempo real (chat efêmero, voz e
 compartilhamento de tela) para uma única organização.
 
-Implementa `docs/plans/2026-08-27-shussei-web.md`.
+<img width="1874" height="926" alt="image" src="https://github.com/user-attachments/assets/e08ca9c7-89a4-43e8-a458-396f063b7ebc" />
+
 
 ## Stack
 
