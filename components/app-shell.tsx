@@ -280,7 +280,11 @@ export function AppShell({
 
               {activeChannel && view === 'files' ? (
                 <Suspense fallback={<FileBrowserFallback />}>
-                  <FileBrowser channelId={activeChannel.id} channelName={activeChannel.name} />
+                  <FileBrowser
+                    channelId={activeChannel.id}
+                    channelName={activeChannel.name}
+                    usersById={usersById}
+                  />
                 </Suspense>
               ) : null}
 
