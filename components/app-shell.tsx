@@ -323,6 +323,7 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
           {voice.isConnected ? (
             <SpriteStrip
               participants={voice.participants}
+              userSprites={userSprites}
               currentUserId={user.id}
               channelName={connectedChannel?.name}
             />

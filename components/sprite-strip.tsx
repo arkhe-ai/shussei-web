@@ -4,8 +4,7 @@ import clsx from 'clsx';
 import type { CSSProperties } from 'react';
 import { prefersReducedMotion } from '../lib/motion-prefs';
 import { SPEAKING_THRESHOLD, hopHeightFor, presetForSeed } from '../lib/sprites';
-import type { VoiceParticipant } from '../lib/types';
-import { useSpriteChoice } from './sprite-provider';
+import type { UserSprites, VoiceParticipant } from '../lib/types';
 import { Sprite } from './ui/sprite';
 
 const WALKER_PX = 30;
@@ -30,10 +29,12 @@ function hashOf(value: string): number {
  */
 export function SpriteStrip({
   participants,
+  userSprites = {},
   currentUserId,
   channelName,
 }: {
   participants: VoiceParticipant[];
+  userSprites?: UserSprites;
   currentUserId?: string;
   channelName?: string;
 }) {
@@ -59,6 +60,7 @@ export function SpriteStrip({
         <Walker
           key={participant.id}
           participant={participant}
+          userSprites={userSprites}
           index={index}
           total={participants.length}
           isSelf={participant.id === currentUserId}
@@ -71,20 +73,20 @@ export function SpriteStrip({
 
 function Walker({
   participant,
+  userSprites,
   index,
   total,
   isSelf,
   isStatic,
 }: {
   participant: VoiceParticipant;
+  userSprites: UserSprites;
   index: number;
   total: number;
   isSelf: boolean;
   isStatic: boolean;
 }) {
-  const { ownUserId, ownPresetId } = useSpriteChoice();
-  const presetId =
-    participant.id === ownUserId && ownPresetId ? ownPresetId : presetForSeed(participant.id);
+  const presetId = userSprites[participant.id] ?? presetForSeed(participant.id);
 
   const level = participant.audioLevel ?? 0;
   const isTalking = !participant.isMuted && level > SPEAKING_THRESHOLD;
@@ -154,7 +156,7 @@ function Walker({
             className="block origin-bottom"
             style={{ width: WALKER_PX, height: WALKER_PX, ...motion }}
           >
-            <Sprite presetId={presetId} isDim={participant.isMuted} />
+            <Sprite key={presetId} presetId={presetId} isDim={participant.isMuted} />
           </span>
         </span>
       </span>
