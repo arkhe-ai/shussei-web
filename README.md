@@ -242,6 +242,82 @@ de um gesto do usuário — o clique serve de gesto).
   toda movimentação da casa seria barulho constante.
 - **Notificação de desktop**: só com a aba escondida.
 
+## Arquivos do canal
+
+Cada canal tem um armazenamento durável próprio, em `/channels/:id/arquivos`
+— na prática `/channels/:id/files`. Os arquivos sobrevivem ao buffer efêmero:
+a mensagem que anunciou um arquivo some em 1h, o arquivo não.
+
+### Por que não é uma página separada
+
+`app/channels/layout.tsx` lê o segmento ativo e troca **só o painel central**
+do `AppShell`. A URL é real (dá para linkar, o botão voltar funciona), mas o
+shell nunca é remontado — é o mesmo motivo pelo qual o shell mora no layout e
+não na página: o App Router remonta a página a cada troca de segmento, e isso
+derrubaria a sala do LiveKit. Uma `page.tsx` que renderizasse o navegador de
+arquivos mataria a call de quem clicasse em "arquivos".
+
+O dock de voz aparece também quando você está nos arquivos do canal em que
+está falando: o painel de voz sai da tela, e sem o dock você ficaria conectado
+sem nenhum botão de mutar.
+
+A pasta atual é um parâmetro de query (`?pasta=<id>`), não estado de
+componente — uma pasta é um lugar, e um lugar tem que sobreviver a um reload.
+
+### Proxy de leitura
+
+Toda leitura de arquivo passa por `app/api/files/[fileId]/route.ts`, no mesmo
+origin do cliente, nunca direto na API.
+
+```text
+<img src="/api/files/<id>">  →  Next (encaminha o cookie)  →  API /api/v1/files/<id>
+```
+
+O motivo é o cookie de sessão, que é `httpOnly; SameSite=Lax`. Com o cliente em
+`app.*` e a API em `api.*`, uma `<img>` apontando direto para a API é uma
+requisição cross-site: o navegador não manda o cookie e a resposta é 401. **Em
+produção apenas** — em `localhost` os dois são same-site e o problema não
+aparece, que é justamente o que torna a armadilha cara.
+
+O proxy encaminha `Range` nos dois sentidos (dá para buscar dentro de um vídeo
+sem baixar tudo), atende `GET` e `HEAD`, devolve `Content-Type`,
+`Content-Length` e `Content-Range`, e preserva 200, 206, 401, 404 e 416.
+`API_INTERNAL_URL` cobre o caso do container, onde a API não está no mesmo
+endereço que o navegador usa.
+
+### Upload
+
+O corpo do `POST` carrega **só o arquivo**; a pasta de destino vai na query, e
+a ausência dela significa a raiz do canal — multipart não tem `null`, e o campo
+chegaria como a string `"null"`.
+
+O progresso exige `XMLHttpRequest`, que passa por fora do `apiFetch` — e é no
+`apiFetch` que mora a checagem de modo mock. Por isso todo upload entra por
+`lib/upload.ts`, que repete a checagem: sem ela, justamente a funcionalidade
+feita para rodar sem backend seria a única a bater na rede.
+
+Limites do cliente (`lib/upload.ts`): 25 MB e uma lista de tipos. São para
+feedback rápido — a resposta do backend é a que vale, e 413/415 continuam
+sendo tratados.
+
+### Anexos no chat
+
+O arquivo é enviado por REST **antes** de ser anunciado. Pelo socket viaja
+apenas o id:
+
+```ts
+socket.emit('chat.send', { channelId, body, fileIds });
+```
+
+Nunca binário, Base64, blob URL ou caminho físico. `fileIds` é omitido em
+mensagem sem anexo, então o payload de texto puro é exatamente o que sempre
+foi. Uma mensagem só com anexo, sem texto, é válida.
+
+### Modo mock
+
+A feature inteira roda com `NEXT_PUBLIC_MOCK=1` e nenhum backend. As imagens de
+mock são data URIs SVG inline — sem host, sem rede. Um arquivo com `falha` no
+nome é rejeitado de propósito, para o caminho de retry ser alcançável à mão.
 ## Contratos consumidos da `shussei-api`
 
 REST:
@@ -251,10 +327,28 @@ REST:
 - `GET /api/v1/channels/:channelId/messages` → `{ messages: EphemeralMessage[] }`
 - `POST /api/v1/channels/:channelId/voice-token` → `{ token, roomName, wsUrl }`
 
+Arquivos (a raiz do canal viaja como o literal `null`):
+
+- `GET /api/v1/channels/:channelId/folders?parentId=<uuid|null>` → `{ folders: FolderDto[] }`
+- `POST /api/v1/channels/:channelId/folders` → `{ folder: FolderDto }`
+- `GET /api/v1/folders/:folderId` → `{ folder: FolderDto }`
+- `GET /api/v1/folders/:folderId/breadcrumbs` → `{ breadcrumbs: FolderDto[] }`
+- `PATCH /api/v1/folders/:folderId` → `{ folder: FolderDto }`
+- `DELETE /api/v1/folders/:folderId` → `204`
+- `GET /api/v1/channels/:channelId/files?folderId=<uuid|null>` → `{ files: StoredFileDto[] }`
+- `POST /api/v1/channels/:channelId/files?folderId=<uuid>` → `{ file: StoredFileDto }` (multipart, só o arquivo)
+- `PATCH /api/v1/files/:fileId` → `{ file: StoredFileDto }` (renomear e mover)
+- `DELETE /api/v1/files/:fileId` → `204`
+- `GET`/`HEAD /api/v1/files/:fileId` → bytes, com `Range`
+
 Socket.IO, namespace `/app`:
 
 - emite `presence.identify`, `chat.send`, `voice.join`, `voice.leave`
 - escuta `presence.snapshot`, `presence.changed`, `chat.message`, `chat.recent`
+
+`chat.send` aceita `fileIds?: string[]`; o `chat.message` de volta traz
+`attachments?: FileAttachmentDto[]` já resolvidos, e eles precisam sobreviver
+ao buffer do Redis para uma mensagem recuperada não perder o anexo.
 
 Os DTOs vivem em `lib/types.ts` e espelham o contrato do plano.
 
@@ -281,7 +375,7 @@ deste README descreve como ficaram.
 
 9. **Compartilhamento de música.** Explorar audição conjunta/sincronizada, seja por sincronização de playback, seja por transmissão controlada de áudio, com atenção à latência e às implicações de produto/licenciamento.
 10. **Bots de voz ativáveis por comando.** Permitir bots com presença em canal de voz e ativação por comandos/trigger de voz para ações úteis dentro da sala.
-11. **Sistema de arquivos.** Pensar um modelo de arquivos/recursos compartilhados no contexto dos canais (upload, organização, permissões e consulta).
+11. **[feito, aguardando backend] Sistema de arquivos.** Navegador de pastas e arquivos por canal, upload com progresso/cancelar/retry, preview de imagem e anexos no chat efêmero. Ver "Arquivos do canal". O cliente está completo e exercitável no modo mock; nenhum dos endpoints existe ainda na `shussei-api`.
 12. **Excalidraw embutido.** Integrar um quadro colaborativo embutido para desenho/diagramação em tempo real.
 
 ### Canais e administração
@@ -321,7 +415,14 @@ deste README descreve como ficaram.
 7. **Cookie de sessão cross-origin.** Web em `:3000` e API em `:3001` são
    origens distintas: o cookie precisa de `SameSite=None; Secure` em produção
    (ou os dois atrás do mesmo host no Caddy) e o CORS precisa de
-   `credentials: true`.
+   `credentials: true`. **Leitura de arquivo já não depende disso**: passa
+   pelo proxy same-origin em `app/api/files/[fileId]`. As chamadas de
+   `apiFetch` e o socket continuam dependendo.
+8. **Módulo de storage.** Nenhum dos endpoints de pasta/arquivo listados
+   acima existe na `shussei-api`, `chat.send` faz bind de `{channelId, body}`
+   e descarta campos desconhecidos, e `EphemeralMessage` não tem campo de
+   anexo. Ver `docs/plans/2026-08-28-shussei-file-storage-frontend.md`,
+   seção "Backend Pre-conditions".
 
 ## Desvios em relação ao plano
 
