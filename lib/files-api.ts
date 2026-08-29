@@ -1,4 +1,4 @@
-import { apiFetch } from './api';
+import { ApiError, apiFetch } from './api';
 import { getApiBaseUrl } from './env';
 import type { FolderContents, FolderDto, StoredFileDto } from './types';
 
@@ -128,4 +128,34 @@ export function resolveDownloadUrl(url: string): string {
 
 export function isImage(mimeType: string): boolean {
   return mimeType.startsWith('image/');
+}
+
+/**
+ * One place where an API status becomes something a person can act on. The
+ * generic fallback keeps the status visible, because "falha na api (500)" is
+ * still more useful to report than "algo deu errado".
+ */
+export function describeFileError(error: unknown): string {
+  if (!(error instanceof ApiError)) return 'falha inesperada';
+
+  switch (error.status) {
+    case 0:
+      return 'sem conexão com a api';
+    case 401:
+      return 'sessão expirada — entre de novo';
+    case 403:
+      return 'sem permissão neste canal';
+    case 404:
+      return 'não encontrado — pode ter sido removido';
+    case 409:
+      return 'já existe um item com esse nome';
+    case 413:
+      return 'arquivo grande demais';
+    case 415:
+      return 'tipo de arquivo não suportado';
+    case 422:
+      return 'nome inválido';
+    default:
+      return `falha na api (${error.status})`;
+  }
 }

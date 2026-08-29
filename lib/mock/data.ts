@@ -1,4 +1,11 @@
-import type { ChannelDto, EphemeralMessage, SessionUser } from '../types';
+import type {
+  ChannelDto,
+  EphemeralMessage,
+  FileAttachmentDto,
+  FolderDto,
+  SessionUser,
+  StoredFileDto,
+} from '../types';
 
 /*
  * `avatarUrl` stays null across the board: people are drawn as pixel characters
@@ -109,3 +116,159 @@ export const mockChatter: string[] = [
   'vou almocar, volto em 40',
   'o livekit ta reclamando de codec, ja viram isso?',
 ];
+
+/**
+ * Mock images are inline SVG data URIs, not files on a host: mock mode has to
+ * render a real `<img>` with no backend, no `public/` round trip, and no
+ * network at all.
+ */
+function pixelImage(label: string, ink: string): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300" viewBox="0 0 480 300">` +
+    `<rect width="480" height="300" fill="#0f0b07"/>` +
+    `<rect x="10" y="10" width="460" height="280" fill="none" stroke="${ink}" stroke-width="2"/>` +
+    `<text x="240" y="158" fill="${ink}" font-family="monospace" font-size="24" ` +
+    `text-anchor="middle">${label}</text>` +
+    `</svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function daysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
+export const mockFolders: FolderDto[] = [
+  {
+    id: 'folder-infra',
+    channelId: 'text-geral',
+    parentId: null,
+    name: 'infra',
+    createdByUserId: 'u-ana',
+    createdAt: daysAgo(9),
+    updatedAt: daysAgo(9),
+  },
+  {
+    id: 'folder-prints',
+    channelId: 'text-geral',
+    parentId: null,
+    name: 'prints',
+    createdByUserId: 'u-you',
+    createdAt: daysAgo(4),
+    updatedAt: daysAgo(4),
+  },
+  {
+    id: 'folder-coturn',
+    channelId: 'text-geral',
+    parentId: 'folder-infra',
+    name: 'coturn',
+    createdByUserId: 'u-ana',
+    createdAt: daysAgo(3),
+    updatedAt: daysAgo(3),
+  },
+  {
+    id: 'folder-vazia',
+    channelId: 'text-geral',
+    parentId: 'folder-infra',
+    name: 'sem-nada',
+    createdByUserId: 'u-caio',
+    createdAt: daysAgo(1),
+    updatedAt: daysAgo(1),
+  },
+  {
+    id: 'folder-dev-specs',
+    channelId: 'text-dev',
+    parentId: null,
+    name: 'specs',
+    createdByUserId: 'u-caio',
+    createdAt: daysAgo(6),
+    updatedAt: daysAgo(6),
+  },
+];
+
+export const mockFiles: StoredFileDto[] = [
+  {
+    id: 'file-topologia',
+    channelId: 'text-geral',
+    folderId: null,
+    originalName: 'topologia.svg',
+    mimeType: 'image/svg+xml',
+    sizeBytes: 48_120,
+    createdByUserId: 'u-ana',
+    createdAt: daysAgo(5),
+    downloadUrl: pixelImage('topologia.svg', '#ff9d2f'),
+  },
+  {
+    id: 'file-runbook',
+    channelId: 'text-geral',
+    folderId: null,
+    originalName: 'runbook.pdf',
+    mimeType: 'application/pdf',
+    sizeBytes: 1_284_400,
+    createdByUserId: 'u-dani',
+    createdAt: daysAgo(2),
+    downloadUrl: 'mock://files/runbook.pdf',
+  },
+  {
+    id: 'file-turn-log',
+    channelId: 'text-geral',
+    folderId: 'folder-coturn',
+    originalName: 'turnserver.log',
+    mimeType: 'text/plain',
+    sizeBytes: 9_640,
+    createdByUserId: 'u-ana',
+    createdAt: daysAgo(3),
+    downloadUrl: 'mock://files/turnserver.log',
+  },
+  {
+    id: 'file-print-dock',
+    channelId: 'text-geral',
+    folderId: 'folder-prints',
+    originalName: 'dock-de-voz.svg',
+    mimeType: 'image/svg+xml',
+    sizeBytes: 22_800,
+    createdByUserId: 'u-you',
+    createdAt: daysAgo(4),
+    downloadUrl: pixelImage('dock-de-voz', '#ffc46b'),
+  },
+  {
+    id: 'file-print-sala',
+    channelId: 'text-geral',
+    folderId: 'folder-prints',
+    originalName: 'sala-principal.svg',
+    mimeType: 'image/svg+xml',
+    sizeBytes: 31_450,
+    createdByUserId: 'u-caio',
+    createdAt: daysAgo(4),
+    downloadUrl: pixelImage('sala-principal', '#e0a851'),
+  },
+  {
+    id: 'file-contrato',
+    channelId: 'text-dev',
+    folderId: 'folder-dev-specs',
+    originalName: 'contrato-livekit.json',
+    mimeType: 'application/json',
+    sizeBytes: 4_210,
+    createdByUserId: 'u-caio',
+    createdAt: daysAgo(6),
+    downloadUrl: 'mock://files/contrato-livekit.json',
+  },
+];
+
+/** Attachments already sitting in the ephemeral buffer, as the API would replay them. */
+export const mockAttachments: Record<string, FileAttachmentDto> = {
+  'file-topologia': {
+    id: 'file-topologia',
+    originalName: 'topologia.svg',
+    mimeType: 'image/svg+xml',
+    sizeBytes: 48_120,
+    downloadUrl: pixelImage('topologia.svg', '#ff9d2f'),
+  },
+  'file-runbook': {
+    id: 'file-runbook',
+    originalName: 'runbook.pdf',
+    mimeType: 'application/pdf',
+    sizeBytes: 1_284_400,
+    downloadUrl: 'mock://files/runbook.pdf',
+  },
+};
