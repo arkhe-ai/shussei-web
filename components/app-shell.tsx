@@ -1,8 +1,9 @@
 'use client';
 
 import clsx from 'clsx';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { isFirstBoot, markBooted } from '../lib/boot-state';
 import { isTypingTarget } from '../lib/keyboard';
 import { useAudioDevices } from '../hooks/use-audio-devices';
@@ -17,6 +18,7 @@ import type { ChannelDto, VoiceParticipant } from '../lib/types';
 import { BootSequence } from './boot-sequence';
 import { ChannelSidebar } from './channel-sidebar';
 import { ChatPanel } from './chat-panel';
+import { FileBrowser } from './file-browser/file-browser';
 import { MicMeter } from './mic-meter';
 import { PresenceList } from './presence-list';
 import { RoomAudio } from './room-audio';
@@ -34,7 +36,16 @@ import { VoicePanel } from './voice-panel';
 /** Long enough for the tear to register, short enough not to delay reading. */
 const GLITCH_MS = 220;
 
-export function AppShell({ initialChannelId }: { initialChannelId: string }) {
+/** Which pane the main area shows. Chosen by the active layout segment. */
+export type ChannelView = 'chat' | 'files';
+
+export function AppShell({
+  initialChannelId,
+  view = 'chat',
+}: {
+  initialChannelId: string;
+  view?: ChannelView;
+}) {
   const router = useRouter();
   // Evaluated once per mount; false for any remount after the first boot.
   const [isBooting, setIsBooting] = useState(isFirstBoot);
@@ -219,8 +230,16 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
     );
   }
 
+  /*
+   * The dock is for a call you cannot see the controls for. Standing in the
+   * channel's file browser is exactly that case, even though the channel itself
+   * is the active one — without the second clause, opening files from the room
+   * you are in would leave you connected with nothing to mute with.
+   */
   const showVoiceDock =
-    voice.isConnected && connectedChannel !== null && connectedChannel.id !== activeChannel?.id;
+    voice.isConnected &&
+    connectedChannel !== null &&
+    (connectedChannel.id !== activeChannel?.id || view === 'files');
 
   return (
     <SpriteProvider userId={user.id} ownPresetId={user.spriteId ?? null} userSprites={userSprites}>
@@ -255,7 +274,17 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
                 </Panel>
               ) : null}
 
-              {activeChannel?.type === 'text' ? (
+              {activeChannel ? (
+                <ChannelViewTabs channel={activeChannel} view={view} />
+              ) : null}
+
+              {activeChannel && view === 'files' ? (
+                <Suspense fallback={<FileBrowserFallback />}>
+                  <FileBrowser channelId={activeChannel.id} channelName={activeChannel.name} />
+                </Suspense>
+              ) : null}
+
+              {activeChannel?.type === 'text' && view === 'chat' ? (
                 <ChatPanel
                   channelId={activeChannel.id}
                   channelName={activeChannel.name}
@@ -267,7 +296,7 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
                 />
               ) : null}
 
-              {activeChannel?.type === 'voice' ? (
+              {activeChannel?.type === 'voice' && view === 'chat' ? (
                 <>
                   <VoicePanel
                     channelName={activeChannel.name}
@@ -389,5 +418,50 @@ export function AppShell({ initialChannelId }: { initialChannelId: string }) {
         />
       </div>
     </SpriteProvider>
+  );
+}
+
+/**
+ * Chat/voice and files are two panes of the same channel, so they read as tabs
+ * rather than as separate destinations. They are links, not buttons: the file
+ * browser has a real URL and middle-click should honour it.
+ */
+function ChannelViewTabs({ channel, view }: { channel: ChannelDto; view: ChannelView }) {
+  const tabs: { key: ChannelView; href: string; label: string }[] = [
+    {
+      key: 'chat',
+      href: `/channels/${channel.id}`,
+      label: channel.type === 'voice' ? 'voz' : 'chat',
+    },
+    { key: 'files', href: `/channels/${channel.id}/files`, label: 'arquivos' },
+  ];
+
+  return (
+    <nav aria-label="painel do canal" className="flex shrink-0 items-center gap-2">
+      {tabs.map((tab) => (
+        <Link
+          key={tab.key}
+          href={tab.href}
+          aria-current={view === tab.key ? 'page' : undefined}
+          className={clsx(
+            'focus-ring border px-2 py-0.5 text-[12px] transition-colors',
+            view === tab.key
+              ? 'border-line-bright text-amber-300 glow'
+              : 'border-line text-content-muted hover:border-line-bright hover:text-content-secondary',
+          )}
+        >
+          [{tab.label}]
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function FileBrowserFallback() {
+  return (
+    <p className="text-[12px] text-content-muted">
+      <span className="text-amber-700">$</span> montando diretório
+      <span className="animate-caret">_</span>
+    </p>
   );
 }

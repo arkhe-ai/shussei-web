@@ -1,0 +1,55 @@
+'use client';
+
+import type { ReactNode } from 'react';
+import { formatDateTime } from '../../lib/format';
+import type { FolderDto } from '../../lib/types';
+
+export function FolderGrid({
+  folders,
+  onOpen,
+  renderActions,
+}: {
+  folders: FolderDto[];
+  onOpen: (folderId: string) => void;
+  renderActions?: (folder: FolderDto) => ReactNode;
+}) {
+  if (folders.length === 0) return null;
+
+  return (
+    <ul
+      aria-label="pastas"
+      className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2"
+    >
+      {folders.map((folder) => (
+        <li
+          key={folder.id}
+          className="group relative flex items-center gap-2 border border-line bg-base-900 px-2 py-2 transition-colors hover:border-line-bright"
+        >
+          <button
+            type="button"
+            onClick={() => onOpen(folder.id)}
+            className="focus-ring flex min-w-0 flex-1 items-center gap-2 text-left"
+          >
+            <span aria-hidden className="shrink-0 text-[12px] text-amber-600">
+              [DIR]
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-[12px] text-content-primary" title={folder.name}>
+                {folder.name}
+              </span>
+              <span className="text-[11px] tabular-nums text-content-muted">
+                {formatDateTime(folder.updatedAt)}
+              </span>
+            </span>
+          </button>
+
+          {renderActions ? (
+            <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+              {renderActions(folder)}
+            </span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
