@@ -1,5 +1,5 @@
 import { ApiError } from '../api';
-import type { FolderDto, StoredFileDto } from '../types';
+import type { FileAttachmentDto, FolderDto, StoredFileDto } from '../types';
 import { mockFiles, mockFolders } from './data';
 
 /**
@@ -166,4 +166,20 @@ export function deleteFile(fileId: string): void {
 
 export function newFileId(): string {
   return nextId('file');
+}
+
+/**
+ * How the API would replay a stored file inside a chat message: the narrow
+ * shape a message carries, resolved from the durable record at send time.
+ */
+export function attachmentFor(fileId: string): FileAttachmentDto {
+  const file = getFile(fileId);
+
+  return {
+    id: file.id,
+    originalName: file.originalName,
+    mimeType: file.mimeType,
+    sizeBytes: file.sizeBytes,
+    downloadUrl: file.downloadUrl,
+  };
 }

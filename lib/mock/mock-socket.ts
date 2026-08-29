@@ -10,6 +10,7 @@ import {
   mockUsers,
 } from './data';
 import { getMockBuffer, pushMockMessage } from './mock-api';
+import { attachmentFor } from './mock-files';
 
 const CHATTER_INTERVAL_MS = 9_000;
 const VOICE_MOVE_INTERVAL_MS = 21_000;
@@ -127,13 +128,27 @@ export function createMockSocket(): AppSocket {
     },
     emit(event, payload) {
       if (event === 'chat.send') {
-        const { channelId, body } = payload as { channelId: string; body: string };
+        const { channelId, body, fileIds } = payload as {
+          channelId: string;
+          body: string;
+          fileIds?: string[];
+        };
+
+        /*
+         * The client sends ids and the server is what turns them into
+         * renderable metadata, then stores that alongside the message. Doing
+         * the same here is what makes an attachment survive being read back out
+         * of the buffer instead of arriving as a bare id nobody can render.
+         */
+        const attachments = (fileIds ?? []).map(attachmentFor);
+
         const message: EphemeralMessage = {
           id: `m-${Math.random().toString(36).slice(2, 10)}`,
           channelId,
           author: mockSessionUser,
           body,
           sentAt: new Date().toISOString(),
+          ...(attachments.length > 0 ? { attachments } : {}),
         };
         pushMockMessage(message);
         setTimeout(() => dispatch('chat.message', message), 60);

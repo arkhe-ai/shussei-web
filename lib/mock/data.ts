@@ -48,74 +48,13 @@ function minutesAgo(minutes: number): string {
   return new Date(Date.now() - minutes * 60_000).toISOString();
 }
 
+function daysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
 function findUser(id: string): SessionUser {
   return mockUsers.find((user) => user.id === id) ?? mockSessionUser;
 }
-
-export const mockMessages: Record<string, EphemeralMessage[]> = {
-  'text-geral': [
-    {
-      id: 'm-1',
-      channelId: 'text-geral',
-      author: findUser('u-ana'),
-      body: 'bom dia, subi o coturn no host novo',
-      sentAt: minutesAgo(24),
-    },
-    {
-      id: 'm-2',
-      channelId: 'text-geral',
-      author: findUser('u-caio'),
-      body: 'testei aqui, o TURN respondeu de primeira',
-      sentAt: minutesAgo(21),
-    },
-    {
-      id: 'm-3',
-      channelId: 'text-geral',
-      author: findUser('u-dani'),
-      body: 'lembrando que o historico some depois de 1h, nao vale como registro',
-      sentAt: minutesAgo(12),
-    },
-  ],
-  'text-dev': [
-    {
-      id: 'm-4',
-      channelId: 'text-dev',
-      author: findUser('u-caio'),
-      body: 'o token do livekit ta expirando junto com a sessao, precisa renovar',
-      sentAt: minutesAgo(38),
-    },
-    {
-      id: 'm-5',
-      channelId: 'text-dev',
-      author: findUser('u-ana'),
-      body: 'abro issue no shussei-api',
-      sentAt: minutesAgo(35),
-    },
-  ],
-  'text-aleatorio': [
-    {
-      id: 'm-6',
-      channelId: 'text-aleatorio',
-      author: findUser('u-edu'),
-      body: 'alguem no jogos hoje a noite?',
-      sentAt: minutesAgo(90),
-    },
-  ],
-};
-
-/** Ambient chatter for mock mode; see `isMockTrafficEnabled`. */
-export const mockChatter: string[] = [
-  'subi a branch, da uma olhada quando puder',
-  'o coturn caiu de novo? aqui deu timeout',
-  'reuniao em 10, alguem entra no sala-principal?',
-  'esse ttl de 1h ta curto demais pro meu gosto',
-  'consegui reproduzir o bug do token expirando',
-  'to compartilhando a tela no jogos',
-  'alguem mexeu no compose ontem?',
-  'boa, funcionou de primeira aqui',
-  'vou almocar, volto em 40',
-  'o livekit ta reclamando de codec, ja viram isso?',
-];
 
 /**
  * Mock images are inline SVG data URIs, not files on a host: mock mode has to
@@ -132,10 +71,6 @@ function pixelImage(label: string, ink: string): string {
     `</svg>`;
 
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-
-function daysAgo(days: number): string {
-  return new Date(Date.now() - days * 86_400_000).toISOString();
 }
 
 export const mockFolders: FolderDto[] = [
@@ -255,20 +190,101 @@ export const mockFiles: StoredFileDto[] = [
   },
 ];
 
-/** Attachments already sitting in the ephemeral buffer, as the API would replay them. */
-export const mockAttachments: Record<string, FileAttachmentDto> = {
-  'file-topologia': {
-    id: 'file-topologia',
-    originalName: 'topologia.svg',
-    mimeType: 'image/svg+xml',
-    sizeBytes: 48_120,
-    downloadUrl: pixelImage('topologia.svg', '#ff9d2f'),
-  },
-  'file-runbook': {
-    id: 'file-runbook',
-    originalName: 'runbook.pdf',
-    mimeType: 'application/pdf',
-    sizeBytes: 1_284_400,
-    downloadUrl: 'mock://files/runbook.pdf',
-  },
+/** How the API would replay an attachment that is already in the buffer. */
+function attachmentOf(fileId: string): FileAttachmentDto {
+  const file = mockFiles.find((candidate) => candidate.id === fileId)!;
+
+  return {
+    id: file.id,
+    originalName: file.originalName,
+    mimeType: file.mimeType,
+    sizeBytes: file.sizeBytes,
+    downloadUrl: file.downloadUrl,
+  };
+}
+
+export const mockMessages: Record<string, EphemeralMessage[]> = {
+  'text-geral': [
+    {
+      id: 'm-1',
+      channelId: 'text-geral',
+      author: findUser('u-ana'),
+      body: 'bom dia, subi o coturn no host novo',
+      sentAt: minutesAgo(24),
+    },
+    {
+      id: 'm-2',
+      channelId: 'text-geral',
+      author: findUser('u-caio'),
+      body: 'testei aqui, o TURN respondeu de primeira',
+      sentAt: minutesAgo(21),
+    },
+    {
+      /*
+       * Buffered with its attachment intact: this is what a message recovered
+       * from Redis has to look like, and it is visible on first load instead of
+       * only after somebody uploads something.
+       */
+      id: 'm-3',
+      channelId: 'text-geral',
+      author: findUser('u-ana'),
+      body: 'topologia atualizada, o desenho antigo tava errado',
+      sentAt: minutesAgo(18),
+      attachments: [attachmentOf('file-topologia')],
+    },
+    {
+      id: 'm-4',
+      channelId: 'text-geral',
+      author: findUser('u-dani'),
+      body: 'lembrando que o historico some depois de 1h, nao vale como registro',
+      sentAt: minutesAgo(12),
+    },
+    {
+      id: 'm-5',
+      channelId: 'text-geral',
+      author: findUser('u-dani'),
+      body: '',
+      sentAt: minutesAgo(9),
+      attachments: [attachmentOf('file-runbook')],
+    },
+  ],
+  'text-dev': [
+    {
+      id: 'm-6',
+      channelId: 'text-dev',
+      author: findUser('u-caio'),
+      body: 'o token do livekit ta expirando junto com a sessao, precisa renovar',
+      sentAt: minutesAgo(38),
+    },
+    {
+      id: 'm-7',
+      channelId: 'text-dev',
+      author: findUser('u-ana'),
+      body: 'abro issue no shussei-api',
+      sentAt: minutesAgo(35),
+    },
+  ],
+  'text-aleatorio': [
+    {
+      id: 'm-8',
+      channelId: 'text-aleatorio',
+      author: findUser('u-edu'),
+      body: 'alguem no jogos hoje a noite?',
+      sentAt: minutesAgo(90),
+    },
+  ],
 };
+
+/** Ambient chatter for mock mode; see `isMockTrafficEnabled`. */
+export const mockChatter: string[] = [
+  'subi a branch, da uma olhada quando puder',
+  'o coturn caiu de novo? aqui deu timeout',
+  'reuniao em 10, alguem entra no sala-principal?',
+  'esse ttl de 1h ta curto demais pro meu gosto',
+  'consegui reproduzir o bug do token expirando',
+  'to compartilhando a tela no jogos',
+  'alguem mexeu no compose ontem?',
+  'boa, funcionou de primeira aqui',
+  'vou almocar, volto em 40',
+  'o livekit ta reclamando de codec, ja viram isso?',
+];
