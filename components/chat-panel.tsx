@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useUploadFile } from '../hooks/use-upload-file';
 import { formatBytes } from '../lib/format';
-import type { EphemeralMessage, StoredFileDto } from '../lib/types';
+import type { EphemeralMessage, FileAttachmentDto, StoredFileDto } from '../lib/types';
 import { ChatAttachment } from './chat-attachment';
 import { FileUploadZone } from './file-upload-zone';
 import { UploadQueue } from './upload-queue';
@@ -21,6 +21,18 @@ function formatTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '--:--';
   return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function isRenderableAttachment(
+  attachment: FileAttachmentDto | null | undefined,
+): attachment is FileAttachmentDto {
+  return Boolean(
+    attachment &&
+      typeof attachment.id === 'string' &&
+      typeof attachment.originalName === 'string' &&
+      typeof attachment.mimeType === 'string' &&
+      typeof attachment.sizeBytes === 'number',
+  );
 }
 
 export function ChatPanel({
@@ -160,9 +172,11 @@ export function ChatPanel({
                       <Typewriter text={message.body} animate={shouldType(message)} />
                     </p>
                   ) : null}
-                  {message.attachments?.map((attachment) => (
-                    <ChatAttachment key={attachment.id} attachment={attachment} />
-                  ))}
+                  {message.attachments
+                    ?.filter(isRenderableAttachment)
+                    .map((attachment) => (
+                      <ChatAttachment key={attachment.id} attachment={attachment} />
+                    ))}
                 </div>
               </motion.li>
             ))}

@@ -63,6 +63,14 @@ describe('ChatPanel', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
+  it('ignores malformed attachment entries instead of crashing the chat', () => {
+    renderPanel({
+      messages: [message({ attachments: [undefined, null] as unknown as EphemeralMessage['attachments'] })],
+    });
+
+    expect(screen.getByText('hello team')).toBeInTheDocument();
+  });
+
   it('renders an image attachment as a link to the file', () => {
     renderPanel({
       messages: [
