@@ -15,7 +15,7 @@
 None of the REST endpoints below exist in `shussei-api` today: there is no storage module, no `Folder` or `StoredFile` Prisma model, and no upload handling. Tasks 1–5 and 7 can be built and verified entirely in mock mode without any of this. Task 6 and the live-mode half of Task 8 cannot, and each item below is a contract the backend must settle first.
 
 - [ ] **The storage module exists** — the folders/files REST surface, persistence, and per-channel authorization.
-- [x] **Download URL authentication is decided — solved on the client.** The session cookie is `httpOnly; SameSite=Lax` (`auth.service.ts`, `getSessionCookieOptions`). With the client on `app.*` and the API on `api.*`, an image request to `api.../files/:id` is cross-site and the cookie is **not** sent, so every image breaks in production while continuing to work on `localhost:3000` against `localhost:3001`, which is same-site and hides the problem in development. Settled as the same-origin Next proxy: `app/api/files/[fileId]/route.ts` forwards the cookie, so the browser request never leaves this origin and no cookie policy has to change. What the backend still owes is the endpoint behind it — `GET`/`HEAD /api/v1/files/:fileId` serving bytes, honouring `Range`, and answering 200/206/401/404/416. `API_INTERNAL_URL` addresses the API from inside the Next container.
+- [x] **Download URL authentication is decided — solved on the client.** The session cookie is `httpOnly; SameSite=Lax` (`auth.service.ts`, `getSessionCookieOptions`). With the client on `app.*` and the API on `api.*`, an image request to `api.../files/:id` is cross-site and the cookie is **not** sent, so every image breaks in production while continuing to work on `localhost:3000` against `localhost:3001`, which is same-site and hides the problem in development. Settled as the same-origin Next proxy: `app/files/[fileId]/route.ts` forwards the cookie, so the browser request never leaves this origin and no cookie policy has to change. What the backend still owes is the endpoint behind it — `GET`/`HEAD /api/v1/files/:fileId` serving bytes, honouring `Range`, and answering 200/206/401/404/416. `API_INTERNAL_URL` addresses the API from inside the Next container.
 - [ ] **`chat.send` accepts `fileIds`.** The gateway currently binds `{ channelId, body }` and silently drops unknown fields, so attachments sent today would vanish with no error surfaced anywhere.
 - [ ] **`EphemeralMessage` carries attachments.** The client type now has the field; the API's `ChatService` still does not, so an attachment sent through a real server arrives on a message that has nowhere to put it.
 - [ ] **The Redis buffer preserves attachment metadata**, either by serialising it into the stored message or by re-hydrating it in `listRecent`. Without this, recovered messages lose their attachments and the corresponding acceptance criterion cannot hold — it is backend behaviour the frontend can only consume.
@@ -118,7 +118,7 @@ POST /api/v1/channels/:channelId/files                   → into the channel ro
 Every read is addressed through the client's own origin, which proxies to the API:
 
 ```text
-<img src="/api/files/:fileId">  →  Next route handler  →  GET /api/v1/files/:fileId
+<img src="/files/:fileId">  →  Next route handler  →  GET /api/v1/files/:fileId
 ```
 
 ## Planned File Structure

@@ -19,7 +19,7 @@ describe('ChatAttachment', () => {
     render(<ChatAttachment attachment={attachment()} />);
 
     const link = screen.getByRole('link');
-    expect(link).toHaveAttribute('href', '/api/files/file-1');
+    expect(link).toHaveAttribute('href', '/files/file-1');
     expect(screen.getByAltText('print.png')).toBeInTheDocument();
   });
 
@@ -28,8 +28,8 @@ describe('ChatAttachment', () => {
       <ChatAttachment attachment={attachment({ thumbnailUrl: '/api/v1/files/file-1/thumb' })} />,
     );
 
-    expect(screen.getByAltText('print.png')).toHaveAttribute('src', '/api/files/file-1');
-    expect(screen.getByRole('link')).toHaveAttribute('href', '/api/files/file-1');
+    expect(screen.getByAltText('print.png')).toHaveAttribute('src', '/files/file-1');
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/files/file-1');
   });
 
   it('shows a named card with the size for anything not an image', () => {

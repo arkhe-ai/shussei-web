@@ -12,6 +12,12 @@ import type { NextRequest } from 'next/server';
  *
  * Range is forwarded both ways so a browser can still seek in an audio or
  * video file instead of downloading it whole to scrub.
+ *
+ * Deliberately NOT under `/api`. The dev reverse proxy hands the whole
+ * `/api/*` namespace to the backend before the app is ever consulted
+ * (`shussei-infra/caddy/Caddyfile.dev`), so a proxy living there is swallowed
+ * and answered with the API's own 404. Any deployment that puts client and API
+ * behind a single host has the same shape, so this route stays out of it.
  */
 export const dynamic = 'force-dynamic';
 

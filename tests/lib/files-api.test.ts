@@ -121,11 +121,11 @@ describe('files-api', () => {
 
   it('reads files through the same-origin proxy rather than from the API', () => {
     // A cross-subdomain <img> would carry no SameSite=Lax cookie and 401.
-    expect(fileUrl({ id: 'abc', downloadUrl: '/api/v1/files/abc' })).toBe('/api/files/abc');
+    expect(fileUrl({ id: 'abc', downloadUrl: '/api/v1/files/abc' })).toBe('/files/abc');
     expect(fileUrl({ id: 'a b', downloadUrl: 'https://api.example.com/x' })).toBe(
-      '/api/files/a%20b',
+      '/files/a%20b',
     );
-    expect(fileUrl({ id: 'abc' })).toBe('/api/files/abc');
+    expect(fileUrl({ id: 'abc' })).toBe('/files/abc');
   });
 
   it('leaves mock-mode URLs alone, since no server stands behind them', () => {

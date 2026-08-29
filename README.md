@@ -266,11 +266,11 @@ componente — uma pasta é um lugar, e um lugar tem que sobreviver a um reload.
 
 ### Proxy de leitura
 
-Toda leitura de arquivo passa por `app/api/files/[fileId]/route.ts`, no mesmo
+Toda leitura de arquivo passa por `app/files/[fileId]/route.ts`, no mesmo
 origin do cliente, nunca direto na API.
 
 ```text
-<img src="/api/files/<id>">  →  Next (encaminha o cookie)  →  API /api/v1/files/<id>
+<img src="/files/<id>">  →  Next (encaminha o cookie)  →  API /api/v1/files/<id>
 ```
 
 O motivo é o cookie de sessão, que é `httpOnly; SameSite=Lax`. Com o cliente em
@@ -284,6 +284,21 @@ sem baixar tudo), atende `GET` e `HEAD`, devolve `Content-Type`,
 `Content-Length` e `Content-Range`, e preserva 200, 206, 401, 404 e 416.
 `API_INTERNAL_URL` cobre o caso do container, onde a API não está no mesmo
 endereço que o navegador usa.
+
+**A rota fica em `/files/:id`, fora de `/api`, e isso não é estético.** O proxy
+reverso entrega todo o namespace `/api/*` para o backend antes de consultar o
+app:
+
+```caddyfile
+# shussei-infra/caddy/Caddyfile.dev
+@api path /api/*
+reverse_proxy @api api:3001
+```
+
+Um proxy em `/api/files/:id` nunca chegaria ao Next: o Caddy engole a
+requisição e o Nest responde `Cannot GET /api/files/<id>`. Qualquer deploy que
+coloque cliente e API atrás de um host só tem o mesmo formato, então a rota
+mora fora desse namespace.
 
 ### Upload
 
@@ -416,7 +431,7 @@ deste README descreve como ficaram.
    origens distintas: o cookie precisa de `SameSite=None; Secure` em produção
    (ou os dois atrás do mesmo host no Caddy) e o CORS precisa de
    `credentials: true`. **Leitura de arquivo já não depende disso**: passa
-   pelo proxy same-origin em `app/api/files/[fileId]`. As chamadas de
+   pelo proxy same-origin em `app/files/[fileId]`. As chamadas de
    `apiFetch` e o socket continuam dependendo.
 8. **Módulo de storage.** Nenhum dos endpoints de pasta/arquivo listados
    acima existe na `shussei-api`, `chat.send` faz bind de `{channelId, body}`

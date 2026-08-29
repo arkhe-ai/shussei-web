@@ -8,7 +8,7 @@ function renderActions(overrides: Partial<Parameters<typeof FileActions>[0]> = {
   const props = {
     kind: 'arquivo' as const,
     name: 'topologia.png',
-    downloadHref: '/api/files/file-1',
+    downloadHref: '/files/file-1',
     moveTargets: [
       { id: null, label: '#geral (raiz)' },
       { id: 'folder-prints', label: 'prints' },
@@ -94,7 +94,7 @@ describe('FileActions', () => {
 
     expect(screen.getByRole('link', { name: 'baixar topologia.png' })).toHaveAttribute(
       'href',
-      '/api/files/file-1',
+      '/files/file-1',
     );
   });
 

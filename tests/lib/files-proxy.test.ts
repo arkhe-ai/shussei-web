@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GET, HEAD } from '../../app/api/files/[fileId]/route';
+import { GET, HEAD } from '../../app/files/[fileId]/route';
 
 /*
  * A stub rather than a real `Request`: the handler only ever reads

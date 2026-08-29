@@ -120,7 +120,7 @@ export function uploadPath(channelId: string, folderId: string | null): string {
 
 /**
  * Where the client points an `<img>` or a download link: always the same-origin
- * proxy at `app/api/files/[fileId]`, never the API directly.
+ * proxy at `app/files/[fileId]`, never the API directly.
  *
  * The session cookie is `SameSite=Lax`, so a cross-subdomain request for a file
  * carries no cookie and comes back 401 — in production only, since on localhost
@@ -134,7 +134,9 @@ export function fileUrl(file: { id: string; downloadUrl?: string }): string {
     return file.downloadUrl;
   }
 
-  return `/api/files/${encodeURIComponent(file.id)}`;
+  // Not `/api/files/...`: the reverse proxy hands the whole `/api/*` namespace
+  // to the backend, which would answer this with its own 404.
+  return `/files/${encodeURIComponent(file.id)}`;
 }
 
 export function isImage(mimeType: string): boolean {
