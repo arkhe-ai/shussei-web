@@ -98,14 +98,14 @@ function xhrUpload(
 ): UploadHandle {
   const xhr = new XMLHttpRequest();
 
+  // The body is the file and nothing else. The destination folder rides in the
+  // query string, where an absent parameter means the channel root — multipart
+  // has no null, and an empty field would arrive as the string "null".
   const form = new FormData();
   form.append('file', file, file.name);
-  // Absent rather than the string "null": multipart has no null, and an empty
-  // field would arrive as one.
-  if (folderId) form.append('folderId', folderId);
 
   const promise = new Promise<StoredFileDto>((resolve, reject) => {
-    xhr.open('POST', `${getApiBaseUrl()}${uploadPath(channelId)}`);
+    xhr.open('POST', `${getApiBaseUrl()}${uploadPath(channelId, folderId)}`);
     xhr.withCredentials = true;
     // No Content-Type is set: FormData has to write its own multipart boundary.
 

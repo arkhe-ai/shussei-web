@@ -1,7 +1,7 @@
 'use client';
 
 import { type FormEvent, useState } from 'react';
-import { describeFileError, resolveDownloadUrl } from '../../lib/files-api';
+import { describeFileError } from '../../lib/files-api';
 import { CommandButton } from '../ui/command-button';
 import { Modal } from '../ui/modal';
 
@@ -22,7 +22,7 @@ const ACTION_CLASS =
 export function FileActions({
   kind,
   name,
-  downloadUrl,
+  downloadHref,
   moveTargets,
   onRename,
   onMove,
@@ -30,7 +30,8 @@ export function FileActions({
 }: {
   kind: 'arquivo' | 'pasta';
   name: string;
-  downloadUrl?: string;
+  /** Already resolved by the caller, so this component never has to know where files live. */
+  downloadHref?: string;
   moveTargets: MoveTarget[];
   onRename: (name: string) => Promise<unknown>;
   onMove: (folderId: string | null) => Promise<unknown>;
@@ -98,9 +99,9 @@ export function FileActions({
           </button>
         ) : null}
 
-        {downloadUrl ? (
+        {downloadHref ? (
           <a
-            href={resolveDownloadUrl(downloadUrl)}
+            href={downloadHref}
             target="_blank"
             rel="noopener noreferrer"
             className={ACTION_CLASS}

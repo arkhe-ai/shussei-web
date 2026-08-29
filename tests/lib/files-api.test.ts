@@ -5,8 +5,9 @@ import {
   deleteFile,
   fetchFolderContents,
   fetchFolders,
-  resolveDownloadUrl,
+  fileUrl,
   updateFile,
+  uploadPath,
 } from '../../lib/files-api';
 
 const BASE = 'http://localhost:3001';
@@ -118,11 +119,26 @@ describe('files-api', () => {
     await expect(updateFile('file-1', { originalName: 'a' })).rejects.toBeInstanceOf(ApiError);
   });
 
-  it('resolves relative download URLs against the API, not the client origin', () => {
-    expect(resolveDownloadUrl('/api/v1/files/abc')).toBe(`${BASE}/api/v1/files/abc`);
-    expect(resolveDownloadUrl('https://cdn.example.com/a.png')).toBe(
-      'https://cdn.example.com/a.png',
+  it('reads files through the same-origin proxy rather than from the API', () => {
+    // A cross-subdomain <img> would carry no SameSite=Lax cookie and 401.
+    expect(fileUrl({ id: 'abc', downloadUrl: '/api/v1/files/abc' })).toBe('/api/files/abc');
+    expect(fileUrl({ id: 'a b', downloadUrl: 'https://api.example.com/x' })).toBe(
+      '/api/files/a%20b',
     );
-    expect(resolveDownloadUrl('data:image/png;base64,AAAA')).toBe('data:image/png;base64,AAAA');
+    expect(fileUrl({ id: 'abc' })).toBe('/api/files/abc');
+  });
+
+  it('leaves mock-mode URLs alone, since no server stands behind them', () => {
+    expect(fileUrl({ id: 'abc', downloadUrl: 'data:image/png;base64,AAAA' })).toBe(
+      'data:image/png;base64,AAAA',
+    );
+    expect(fileUrl({ id: 'abc', downloadUrl: 'mock://files/a.png' })).toBe('mock://files/a.png');
+  });
+
+  it('puts the upload destination in the query, and omits it at the root', () => {
+    expect(uploadPath('text-geral', null)).toBe('/api/v1/channels/text-geral/files');
+    expect(uploadPath('text-geral', 'folder-1')).toBe(
+      '/api/v1/channels/text-geral/files?folderId=folder-1',
+    );
   });
 });

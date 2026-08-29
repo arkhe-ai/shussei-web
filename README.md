@@ -40,7 +40,7 @@ o navegador estiver na mesma máquina do backend. Ver "Variáveis de ambiente".
 | `NEXT_PUBLIC_API_BASE_URL` | Base da `shussei-api`, sem barra no final. Precisa ser o endereço que o **navegador do usuário** alcança |
 | `NEXT_PUBLIC_MOCK` | `1` liga o modo mock (veja abaixo). Nunca use em produção |
 | `NEXT_PUBLIC_MOCK_TRAFFIC` | Só vale com o mock ligado. `0` desliga o tráfego ambiente (padrão: ligado) |
-| `NEXT_PUBLIC_MOCK_TRAFFIC` | Só vale com o mock ligado. `0` desliga o tráfego ambiente (padrão: ligado) |
+| `API_INTERNAL_URL` | Opcional, lido **só no servidor** pelo proxy de arquivos. Endereço da `shussei-api` a partir do container do Next. Sem valor, cai no `NEXT_PUBLIC_API_BASE_URL` |
 
 Onde colocar, em ordem de precedência (o Next lê todos, do mais específico ao
 menos): `.env.local` → `.env.development` / `.env.production` → `.env`. Na

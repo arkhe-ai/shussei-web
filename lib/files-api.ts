@@ -1,5 +1,4 @@
 import { ApiError, apiFetch } from './api';
-import { getApiBaseUrl } from './env';
 import type { FolderContents, FolderDto, StoredFileDto } from './types';
 
 /**
@@ -38,7 +37,7 @@ export async function fetchFolder(folderId: string): Promise<FolderDto> {
   return data.folder;
 }
 
-/** Root to current, inclusive. The root itself has no entry. */
+/** Root to current, inclusive. The channel root itself has no entry. */
 export async function fetchBreadcrumbs(folderId: string): Promise<FolderDto[]> {
   const data = await apiFetch<{ breadcrumbs: FolderDto[] }>(
     `/api/v1/folders/${encodeURIComponent(folderId)}/breadcrumbs`,
@@ -91,6 +90,7 @@ export async function deleteFolder(folderId: string): Promise<void> {
   await apiFetch<void>(`/api/v1/folders/${encodeURIComponent(folderId)}`, { method: 'DELETE' });
 }
 
+/** Renames a file, moves it between folders, or moves it to the root with `null`. */
 export async function updateFile(
   fileId: string,
   patch: { originalName?: string; folderId?: string | null },
@@ -106,24 +106,35 @@ export async function deleteFile(fileId: string): Promise<void> {
   await apiFetch<void>(`/api/v1/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
 }
 
-/** Where `POST` sends a new upload. Used by `lib/upload.ts`, which needs the raw URL for XHR. */
-export function uploadPath(channelId: string): string {
-  return channelPath(channelId, 'files');
+/**
+ * Where `POST` sends a new upload. The destination folder is a query parameter,
+ * never a multipart field: the body is the file and nothing else, and an absent
+ * parameter means the channel root.
+ *
+ * Used by `lib/upload.ts`, which needs the raw path for XHR.
+ */
+export function uploadPath(channelId: string, folderId: string | null): string {
+  const base = channelPath(channelId, 'files');
+  return folderId ? `${base}?folderId=${encodeURIComponent(folderId)}` : base;
 }
 
 /**
- * The backend may return an absolute URL or an API-relative path; a relative one
- * resolved by the browser would point at the *client's* origin, where no such
- * route exists.
+ * Where the client points an `<img>` or a download link: always the same-origin
+ * proxy at `app/api/files/[fileId]`, never the API directly.
  *
- * Whether the resulting URL authenticates at all is still open — see Backend
- * Pre-conditions in the plan. The session cookie is `SameSite=Lax`, so a bare
- * cross-subdomain image request carries no cookie and comes back 401 in
- * production while working locally, where client and API are same-site.
+ * The session cookie is `SameSite=Lax`, so a cross-subdomain request for a file
+ * carries no cookie and comes back 401 — in production only, since on localhost
+ * client and API are same-site and the failure never appears.
+ *
+ * Mock mode is the exception: its files are inline data URIs with no server
+ * behind them, so they are handed back untouched.
  */
-export function resolveDownloadUrl(url: string): string {
-  if (/^(?:https?:|data:|blob:)/i.test(url)) return url;
-  return `${getApiBaseUrl()}${url.startsWith('/') ? '' : '/'}${url}`;
+export function fileUrl(file: { id: string; downloadUrl?: string }): string {
+  if (file.downloadUrl && /^(?:data:|blob:|mock:)/i.test(file.downloadUrl)) {
+    return file.downloadUrl;
+  }
+
+  return `/api/files/${encodeURIComponent(file.id)}`;
 }
 
 export function isImage(mimeType: string): boolean {

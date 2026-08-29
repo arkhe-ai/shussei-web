@@ -8,7 +8,7 @@ function renderActions(overrides: Partial<Parameters<typeof FileActions>[0]> = {
   const props = {
     kind: 'arquivo' as const,
     name: 'topologia.png',
-    downloadUrl: '/api/v1/files/file-1',
+    downloadHref: '/api/files/file-1',
     moveTargets: [
       { id: null, label: '#geral (raiz)' },
       { id: 'folder-prints', label: 'prints' },
@@ -89,17 +89,17 @@ describe('FileActions', () => {
     expect(props.onMove).toHaveBeenCalledWith(null);
   });
 
-  it('offers a download pointing at the api', () => {
+  it('offers a download through the same-origin proxy', () => {
     renderActions();
 
     expect(screen.getByRole('link', { name: 'baixar topologia.png' })).toHaveAttribute(
       'href',
-      'http://localhost:3001/api/v1/files/file-1',
+      '/api/files/file-1',
     );
   });
 
   it('has no download action for a folder', () => {
-    renderActions({ kind: 'pasta', name: 'infra', downloadUrl: undefined });
+    renderActions({ kind: 'pasta', name: 'infra', downloadHref: undefined });
 
     expect(screen.queryByRole('link', { name: /baixar/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'excluir infra' })).toBeInTheDocument();

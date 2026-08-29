@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { describeFileError, isImage, resolveDownloadUrl } from '../../lib/files-api';
+import { describeFileError, fileUrl, isImage } from '../../lib/files-api';
 import { formatBytes, formatDateTime } from '../../lib/format';
 import type { StoredFileDto } from '../../lib/types';
 import { CommandButton, CommandLink } from '../ui/command-button';
@@ -31,7 +31,7 @@ export function FilePreviewDialog({
   const [error, setError] = useState<string | null>(null);
 
   const showsImage = isImage(file.mimeType) && !imageFailed;
-  const href = resolveDownloadUrl(file.downloadUrl);
+  const href = fileUrl(file);
 
   async function handleDelete() {
     if (!onDelete) return;

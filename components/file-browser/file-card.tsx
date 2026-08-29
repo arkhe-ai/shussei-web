@@ -2,7 +2,7 @@
 
 import clsx from 'clsx';
 import { type ReactNode, useState } from 'react';
-import { isImage, resolveDownloadUrl } from '../../lib/files-api';
+import { fileUrl, isImage } from '../../lib/files-api';
 import { formatBytes, formatDateTime } from '../../lib/format';
 import type { StoredFileDto } from '../../lib/types';
 
@@ -43,7 +43,7 @@ export function FileCard({
           // come from the API on another origin; next/image would need a remote
           // pattern per deployment and buys nothing for a thumbnail grid.
           <img
-            src={resolveDownloadUrl(file.downloadUrl)}
+            src={fileUrl(file)}
             alt={file.originalName}
             onError={() => setImageFailed(true)}
             className="h-full w-full object-cover"

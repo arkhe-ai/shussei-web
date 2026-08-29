@@ -106,7 +106,7 @@ describe('FileBrowser', () => {
     renderBrowser();
 
     const image = await screen.findByAltText('topologia.png');
-    expect(image).toHaveAttribute('src', 'http://localhost:3001/api/v1/files/file-1');
+    expect(image).toHaveAttribute('src', '/api/files/file-1');
     expect(screen.getByText('[PDF]')).toBeInTheDocument();
   });
 

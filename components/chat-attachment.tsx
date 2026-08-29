@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { isImage, resolveDownloadUrl } from '../lib/files-api';
+import { fileUrl, isImage } from '../lib/files-api';
 import { formatBytes } from '../lib/format';
 import type { FileAttachmentDto } from '../lib/types';
 import { fileGlyph } from './file-browser/file-card';
@@ -17,10 +17,12 @@ import { fileGlyph } from './file-browser/file-card';
 export function ChatAttachment({ attachment }: { attachment: FileAttachmentDto }) {
   const [imageFailed, setImageFailed] = useState(false);
 
-  const href = resolveDownloadUrl(attachment.downloadUrl);
-  const thumbnail = attachment.thumbnailUrl
-    ? resolveDownloadUrl(attachment.thumbnailUrl)
-    : href;
+  /*
+   * One URL for both the preview and the link. `thumbnailUrl` is carried in the
+   * contract but not used: the proxy addresses a file by id, and asking it for a
+   * derived rendition would need a backend variant the MVP does not generate.
+   */
+  const href = fileUrl(attachment);
   const showsImage = isImage(attachment.mimeType) && !imageFailed;
 
   if (showsImage) {
@@ -35,7 +37,7 @@ export function ChatAttachment({ attachment }: { attachment: FileAttachmentDto }
             API on another origin; next/image would need a remote pattern per
             deployment and buys nothing for a chat thumbnail. */}
         <img
-          src={thumbnail}
+          src={href}
           alt={attachment.originalName}
           onError={() => setImageFailed(true)}
           className="block max-h-[180px] w-full object-contain"

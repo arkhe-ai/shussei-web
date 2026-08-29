@@ -13,7 +13,7 @@ import {
 } from '../../hooks/use-files';
 import { useUploadFile } from '../../hooks/use-upload-file';
 import { ApiError } from '../../lib/api';
-import { describeFileError } from '../../lib/files-api';
+import { describeFileError, fileUrl } from '../../lib/files-api';
 import type { SessionUser, StoredFileDto } from '../../lib/types';
 import { FileUploadZone } from '../file-upload-zone';
 import { CommandButton } from '../ui/command-button';
@@ -206,7 +206,7 @@ export function FileBrowser({
                 <FileActions
                   kind="arquivo"
                   name={target.originalName}
-                  downloadUrl={target.downloadUrl}
+                  downloadHref={fileUrl(target)}
                   moveTargets={moveTargets}
                   onRename={(originalName) =>
                     updateFile.mutateAsync({ fileId: target.id, originalName })

@@ -26,10 +26,7 @@ describe('FilePreviewDialog', () => {
       <FilePreviewDialog file={file()} authorName="ana" onClose={vi.fn()} />,
     );
 
-    expect(screen.getByAltText('topologia.png')).toHaveAttribute(
-      'src',
-      'http://localhost:3001/api/v1/files/file-1',
-    );
+    expect(screen.getByAltText('topologia.png')).toHaveAttribute('src', '/api/files/file-1');
     expect(screen.getByText('47 KB')).toBeInTheDocument();
     expect(screen.getByText('ana')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /baixar/i })).toBeInTheDocument();
