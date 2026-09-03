@@ -326,8 +326,8 @@ export function ScreenPreview({ feed, className }: { feed: MediaFeed; className?
 }
 
 const WATCHDOG_MS = 700;
-/** Three quiet samples ≈ 2s of a frozen picture before we call it lost. */
-const STALE_SAMPLES = 3;
+/** Five samples ≈ 3.5s to account for network jitter and adaptive bitrate. */
+const STALE_SAMPLES = 5;
 
 /**
  * Attaches the track and watches for a frozen picture.
@@ -346,6 +346,7 @@ function useVideoFeed(feed: MediaFeed) {
   // not blink even if some future caller hands it fresh objects again.
   const feedRef = useRef(feed);
   feedRef.current = feed;
+  const lastTimeRef = useRef<number>(-1);
 
   useEffect(() => {
     const element = videoRef.current;
@@ -356,11 +357,21 @@ function useVideoFeed(feed: MediaFeed) {
     attached.attach(element);
     setHasSignal(true);
 
-    let lastTime = -1;
     let staleCount = 0;
+    lastTimeRef.current = -1;
 
     const id = window.setInterval(() => {
       const current = element.currentTime;
+      const lastTime = lastTimeRef.current;
+
+      // Handle video reset (currentTime goes to 0): re-attach or seek error
+      // Reset watchdog to give new stream time to stabilize
+      if (current === 0 && lastTime > 10) {
+        staleCount = 0;
+        lastTimeRef.current = 0;
+        setHasSignal(true);
+        return;
+      }
 
       if (element.paused || current === lastTime) {
         staleCount += 1;
@@ -370,7 +381,7 @@ function useVideoFeed(feed: MediaFeed) {
         setHasSignal(true);
       }
 
-      lastTime = current;
+      lastTimeRef.current = current;
     }, WATCHDOG_MS);
 
     return () => {
