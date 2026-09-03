@@ -458,6 +458,30 @@ deste README descreve como ficaram.
   contrato da API, mas as pessoas são desenhadas como personagens pixelados. Ver
   "Bonecos".
 
+## Ícone
+
+A marca fica em `assets/logo.png`. Os três arquivos que o Next serve saem
+dela e são **gerados na `shussei-desktop`** (`npm run icons`), que é o único
+lugar onde o ícone é produzido — o app desktop precisa das mesmas variações e
+já tem o Electron para redimensionar. De lá, `build/web/` é copiado para cá.
+
+| Arquivo | Quem usa |
+| --- | --- |
+| `app/favicon.ico` | aba do navegador — multi-tamanho, 16 a 256 px |
+| `app/icon.png` | 512 px, contextos de alta resolução |
+| `app/apple-icon.png` | 180 px, atalho na tela inicial do iOS |
+
+Não há `<link>` escrito à mão: o App Router detecta os três pelo nome do
+arquivo e emite as tags sozinho.
+
+Até 32 px o ícone perde a digital e fica só o arco — reduzida, ela vira uma
+mancha marrom dentro do arco em vez de uma digital. O porquê e o corte estão
+no README da `shussei-desktop`.
+
+O `apple-icon.png` é o único com fundo, no quase-preto que a `themeColor` do
+`app/layout.tsx` já declara: o iOS ignora transparência em touch icon e
+compõe sobre preto de qualquer jeito.
+
 ## Tema
 
 O visual é um terminal CLI/cyberpunk (âmbar sobre preto, monoespaçado). Todas as
