@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/use-auth';
 import { useChannelActivity } from '../hooks/use-channel-activity';
 import { useChannels } from '../hooks/use-channels';
 import { useChat } from '../hooks/use-chat';
+import { useDesktop } from '../hooks/use-desktop';
 import { useDirectory } from '../hooks/use-directory';
 import { usePresence } from '../hooks/use-presence';
 import { useVoiceRoom } from '../hooks/use-voice-room';
@@ -85,6 +86,26 @@ export function AppShell({
 
   const connectedChannel =
     channels.find((channel) => channel.id === voice.connectedChannelId) ?? null;
+
+  /*
+   * Global push-to-talk, the tray's mute/deafen/disconnect and the taskbar
+   * badge. Every one of these is a no-op in a browser, where there is no
+   * desktop host listening.
+   */
+  useDesktop(
+    {
+      connected: voice.isConnected,
+      muted: voice.isMuted,
+      deafened: voice.isDeafened,
+      talkMode: voice.talkMode,
+      channelName: connectedChannel?.name ?? null,
+      setPushToTalk: voice.setPushToTalk,
+      toggleMute: voice.toggleMute,
+      toggleDeafen: voice.toggleDeafen,
+      leave: voice.leave,
+    },
+    totalUnread,
+  );
 
   /*
    * LiveKit cannot be wrong about the room you are standing in, so the sidebar
